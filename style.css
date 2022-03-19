@@ -1,0 +1,41 @@
+*{
+    box-sizing: border-box;
+    margin: 0;
+    padding:0 ;
+}
+html,body{
+    height: 100%;
+    margin: 0;
+}
+body{
+    align-items: center;
+    background-image: url('https://source.unsplash.com/random/1600×900/?city,night');
+    background-size: cover;
+    display: flex;
+    font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+}
+h1{
+    font-weight: normal;
+    letter-spacing: 0.125rem;
+    text-transform: uppercase;
+    color: aqua;
+}
+.container{
+    color: rgb(204, 201, 201);
+    margin: 0 auto;
+    text-align: center;
+    padding: 1em;
+    background-color:rgba(0, 0, 0, 0.651);
+    border-radius: 4em;
+}
+li{
+    display: inline-block;
+    font-size: 1.5em;
+    list-style-type: none;
+    padding: 1em;
+    text-transform: uppercase;
+}
+li span{
+    display: block;
+    font-size: 4.5rem;
+}
