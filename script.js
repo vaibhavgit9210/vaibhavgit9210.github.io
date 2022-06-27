@@ -1,27 +1,39 @@
-(function () {
-    const second = 1000,
-        minute = second * 60,
-        hour = minute * 60,
-        day = hour * 24;
-    let new_year = "Jan 1, 2023 00:00:00",
-        countDown = new Date(new_year).getTime(),
-        x = setInterval(function () {
-            let now = new Date().getTime(),
-                distance = countDown - now;
+let weather ={
+    "apikey" : api_key.my_key,
+    fetchweather: function(city){
+        fetch(
+            "https://api.openweathermap.org/data/2.5/weather?q="
+            + city 
+            + "&units=metric&appid="
+            + this.apikey
+        ).then((response)=>response.json())
+        .then((data)=>this.displayweather(data));
+    },
+    displayweather: function(data){
+        const { name } = data;
+        const {icon,description} = data.weather[0];
+        const {temp,humidity} = data.main;
+        const {speed} = data.wind;
+        //console.log(name,icon,description,temp,humidity,speed);
+        document.querySelector(".city").innerText="Weather in "+ name;
+        document.querySelector(".humidity").innerText="Humidity: "+humidity+"%";
+        document.querySelector(".icon").src="https://openweathermap.org/img/wn/"+icon +"@2x.png";
+        document.querySelector(".temp").innerText=+temp+"°C";
+        document.querySelector(".description").innerText=description;
+        document.querySelector(".wind").innerText="Wind speed: "+speed+"km/hr";
+        document.querySelector(".weather").classList.remove("loading");
+        document.body.style.backgroundImage = "url('https://source.unsplash.com/1600x900/?"+name+"')"
+    },
+    search: function(){
+        this.fetchweather(document.querySelector(".search-bar").value);
+    }
+}
+document.querySelector(".search button").addEventListener("click",function(){
+    weather.search();
+});
 
-            document.getElementById("days").innerText = Math.floor(distance / (day)),
-                document.getElementById("hours").innerText = Math.floor((distance % (day)) / (hour)),
-                document.getElementById("minutes").innerText = Math.floor((distance % (hour)) / (minute)),
-                document.getElementById("seconds").innerText = Math.floor((distance % (minute)) / (second));
-            if (distance < 0) {
-                let headline = document.getElementById("headline"),
-                    countdown = document.getElementById("countdown"),
-                    content = document.getElementById("content");
+document.querySelector(".search").addEventListener("keyup", function(event){
+    if(event.key == "Enter")    weather.search();
+})
 
-                headline.innerText = "Congragulations you made it!";
-                countdown.style.display = "none";
-                content.style.display = "block";
-                clearInterval(x);
-            }
-        }, 0)
-}());
+weather.fetchweather("Delhi");
