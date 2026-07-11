@@ -58,7 +58,21 @@ nav .logo{font-weight:800;font-size:1.05rem;letter-spacing:.5px;text-decoration:
 nav ul{display:flex;gap:26px;list-style:none}
 nav ul a{color:var(--muted);text-decoration:none;font-size:.9rem;transition:color .2s}
 nav ul a:hover{color:var(--text)}
-@media(max-width:640px){nav ul{gap:14px}nav ul a{font-size:.8rem}}
+nav ul a.bored{
+  color:#f0abfc;font-family:ui-monospace,Menlo,monospace;font-size:.82rem;
+  padding:5px 14px;border-radius:99px;border:1px dashed rgba(240,171,252,.5);
+  transition:all .25s;
+}
+nav ul a.bored:hover{
+  color:#0b0f1a;background:#f0abfc;border-style:solid;
+  box-shadow:0 0 18px rgba(240,171,252,.5);
+  animation:wiggle .4s ease-in-out;
+}
+@keyframes wiggle{25%{transform:rotate(-3deg)}75%{transform:rotate(3deg)}}
+@media(max-width:640px){
+  nav ul{gap:14px}nav ul a{font-size:.8rem}
+  nav ul li:nth-child(-n+4){display:none}
+}
 
 main{position:relative;z-index:2}
 section{max-width:1060px;margin:0 auto;padding:110px clamp(20px,5vw,40px) 0}
@@ -237,6 +251,7 @@ footer a{color:var(--accent);text-decoration:none}
     <li><a href="#projects">Projects</a></li>
     <li><a href="#skills">Skills</a></li>
     <li><a href="#contact">Contact</a></li>
+    <li><a class="bored" href="arcade/">bored?</a></li>
   </ul>
 </nav>
 

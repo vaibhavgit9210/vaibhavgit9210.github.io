@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VK Arcade — insert coin</title>
+<meta name="description" content="Everything playable that Vaibhav Kumar has shipped to the internet — games, toys, and relics, all still live.">
+<style>
+:root{
+  --bg:#060a13;
+  --card:rgba(255,255,255,.04);
+  --card-border:rgba(255,255,255,.09);
+  --text:#e6edf7;
+  --muted:#8b98ad;
+  --accent:#6ee7ff;
+  --accent2:#a78bfa;
+  --neon:#f0abfc;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;overflow-x:hidden}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  line-height:1.6;overflow-x:hidden;min-height:100vh;
+  background-image:
+    radial-gradient(1px 1px at 40px 60px,rgba(140,190,255,.5),transparent),
+    radial-gradient(1px 1px at 180px 140px,rgba(240,171,252,.4),transparent),
+    radial-gradient(1.5px 1.5px at 300px 40px,rgba(110,231,255,.45),transparent),
+    radial-gradient(1px 1px at 420px 200px,rgba(255,255,255,.3),transparent),
+    radial-gradient(1px 1px at 560px 90px,rgba(167,139,250,.4),transparent);
+  background-size:600px 260px;
+}
+::selection{background:var(--neon);color:#0b0f1a}
+
+/* CRT scanlines + vignette */
+body::before{
+  content:"";position:fixed;inset:0;z-index:90;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0 1px,transparent 1px 3px);
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:91;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 58%,rgba(0,0,0,.5) 100%);
+}
+
+.wrap{position:relative;z-index:2;max-width:960px;margin:0 auto;padding:40px clamp(16px,4vw,32px) 60px}
+
+.back{display:inline-block;color:var(--muted);text-decoration:none;font-size:.85rem;margin-bottom:44px;transition:color .2s}
+.back:hover{color:var(--accent)}
+
+header{text-align:center;margin-bottom:60px}
+h1.marquee{
+  font-size:clamp(2.4rem,9vw,4.5rem);font-weight:800;letter-spacing:4px;
+  color:var(--neon);
+  text-shadow:0 0 6px rgba(240,171,252,.8),0 0 24px rgba(240,171,252,.5),0 0 60px rgba(167,139,250,.4);
+  animation:flicker 4s infinite;
+}
+@keyframes flicker{
+  0%,100%{opacity:1}
+  92%{opacity:1}93%{opacity:.55}94%{opacity:1}
+  96%{opacity:.75}97%{opacity:1}
+}
+.tagline{color:var(--muted);font-size:.95rem;margin-top:10px}
+.coin{
+  margin-top:26px;display:inline-block;cursor:pointer;user-select:none;
+  color:#fcd34d;font-size:.95rem;letter-spacing:3px;
+  padding:10px 26px;border:1px dashed rgba(252,211,77,.5);border-radius:8px;
+  animation:blinkc 1.2s step-end infinite;transition:transform .1s;
+}
+.coin:active{transform:scale(.94)}
+@keyframes blinkc{50%{opacity:.35}}
+.credits{color:var(--muted);font-size:.75rem;margin-top:10px;letter-spacing:2px}
+
+h2.sec{
+  font-size:1.1rem;letter-spacing:4px;text-transform:uppercase;color:var(--accent);
+  margin:56px 0 6px;
+}
+h2.sec::before{content:"▸ "}
+p.secsub{color:var(--muted);font-size:.85rem;margin-bottom:24px}
+
+/* cabinets */
+.cabinets{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+a.cab{
+  position:relative;display:block;padding:28px 26px 24px;border-radius:16px;
+  text-decoration:none;color:var(--text);overflow:hidden;
+  background:linear-gradient(160deg,rgba(110,231,255,.08),rgba(167,139,250,.07));
+  border:1px solid var(--card-border);
+  transition:transform .25s,border-color .25s,box-shadow .25s;
+}
+a.cab:hover{
+  transform:translateY(-6px);border-color:var(--accent);
+  box-shadow:0 0 0 1px rgba(110,231,255,.3),0 20px 60px rgba(110,231,255,.12);
+}
+a.cab .art{font-size:2.6rem;margin-bottom:12px;display:block;filter:drop-shadow(0 0 12px rgba(110,231,255,.4))}
+a.cab h3{font-size:1.15rem;font-weight:800;letter-spacing:1px}
+a.cab .sub{color:var(--accent2);font-size:.75rem;letter-spacing:2px;text-transform:uppercase;margin:4px 0 10px;display:block}
+a.cab p{color:var(--muted);font-size:.85rem;line-height:1.55}
+a.cab .press{
+  display:inline-block;margin-top:16px;font-size:.75rem;letter-spacing:3px;color:#34d399;
+  animation:blinkc 1.4s step-end infinite;
+}
+a.cab .hint{position:absolute;top:18px;right:18px;font-size:.68rem;color:var(--muted);
+  border:1px solid var(--card-border);border-radius:99px;padding:3px 10px}
+
+/* retro corner */
+.retro{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+a.relic{
+  display:block;padding:18px 20px;border-radius:12px;text-decoration:none;
+  background:var(--card);border:1px solid var(--card-border);color:var(--text);
+  transition:transform .2s,border-color .2s;
+}
+a.relic:hover{transform:translateY(-3px);border-color:var(--accent2)}
+a.relic h4{font-size:.95rem;font-weight:700}
+a.relic h4 .yr{color:var(--accent);font-size:.72rem;margin-left:8px;font-weight:400}
+a.relic p{color:var(--muted);font-size:.8rem;margin-top:4px}
+
+/* utility strip */
+.utils{display:flex;flex-wrap:wrap;gap:10px}
+.utils a{
+  color:var(--muted);text-decoration:none;font-size:.8rem;
+  padding:8px 16px;border-radius:99px;border:1px solid var(--card-border);
+  transition:all .2s;
+}
+.utils a:hover{color:var(--text);border-color:var(--accent);transform:translateY(-2px)}
+
+footer{text-align:center;color:var(--muted);font-size:.72rem;letter-spacing:2px;margin-top:70px}
+footer a{color:var(--accent);text-decoration:none}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../">← back to reality</a>
+
+  <header>
+    <h1 class="marquee">VK ARCADE</h1>
+    <div class="tagline">everything playable I've ever shipped to the internet — still running, no quarters required</div>
+    <div class="coin" id="coin">🪙 INSERT COIN</div>
+    <div class="credits">CREDITS: <span id="credits">0</span></div>
+  </header>
+
+  <h2 class="sec">Now Playing</h2>
+  <p class="secsub">The main cabinets.</p>
+  <div class="cabinets">
+    <a class="cab" href="https://vaibhavgit9210.github.io/train-robbery/" target="_blank" rel="noopener">
+      <span class="hint">🖥️ best on desktop</span>
+      <span class="art">🤠</span>
+      <h3>The Iron Horse Hold-Up</h3>
+      <span class="sub">WebGL · zero libraries</span>
+      <p>A wild-west train heist rendered in raw WebGL — shaders, smoke, and one very
+      determined bandit. A single HTML file, no build step, runs offline.</p>
+      <span class="press">▶ PRESS START</span>
+    </a>
+    <a class="cab" href="https://vaibhavgit9210.github.io/snakegame_pilot/" target="_blank" rel="noopener">
+      <span class="hint">📱 grab your phone</span>
+      <span class="art">🐍</span>
+      <h3>Gyro Games</h3>
+      <span class="sub">tilt controls · real physics</span>
+      <p>Snake and Gyro Ball, played by physically tilting your phone. The ball bounces
+      with real physics; the snake judges your wrist stability.</p>
+      <span class="press">▶ PRESS START</span>
+    </a>
+  </div>
+
+  <h2 class="sec">Retro Corner</h2>
+  <p class="secsub">Early builds, preserved in amber. They still work — that's the charm.</p>
+  <div class="retro">
+    <a class="relic" href="https://vaibhavgit9210.github.io/countdown-timer/" target="_blank" rel="noopener">
+      <h4>Countdown to 2024 <span class="yr">2023</span></h4>
+      <p>A timer that counted down to 2024. It made it. Nobody told it to stop.</p>
+    </a>
+    <a class="relic" href="https://vaibhavgit9210.github.io/css-theme-switcher/" target="_blank" rel="noopener">
+      <h4>Theme Switcher <span class="yr">2023</span></h4>
+      <p>One button, two themes. Peak minimalism before it was a design philosophy.</p>
+    </a>
+    <a class="relic" href="../weather/" target="_blank" rel="noopener">
+      <h4>Weather App <span class="yr">2022</span></h4>
+      <p>My first deploy ever. One search box, one API call, unreasonable pride.</p>
+    </a>
+  </div>
+
+  <h2 class="sec">Bonus Stage</h2>
+  <p class="secsub">Not games — but live, and occasionally useful.</p>
+  <div class="utils">
+    <a href="https://vaibhavgit9210.github.io/jsondiff/" target="_blank" rel="noopener">🧰 CodeTools — formatter &amp; diff</a>
+    <a href="https://vaibhavgit9210.github.io/quicknote/" target="_blank" rel="noopener">📋 QuickNote — cross-device clipboard</a>
+    <a href="https://vaibhavgit9210.github.io/notepad/" target="_blank" rel="noopener">📝 Notepad</a>
+    <a href="https://vaibhavgit9210.github.io/docxviewer/" target="_blank" rel="noopener">📄 DOCX Viewer</a>
+    <a href="https://vaibhavgit9210.github.io/mypager/" target="_blank" rel="noopener">🗂️ Board</a>
+    <a href="https://vaibhavgit9210.github.io/webhook/" target="_blank" rel="noopener">🪝 Webhook Receiver</a>
+    <a href="https://vaibhavgit9210.github.io/blogvlog/" target="_blank" rel="noopener">✍️ Blog</a>
+  </div>
+
+  <footer>
+    GAME OVER? <a href="../">CONTINUE → portfolio</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+var coin = document.getElementById("coin"), out = document.getElementById("credits"), n = 0;
+var lines = ["🪙 INSERT COIN","🪙 NICE. ANOTHER?","🪙 BIG SPENDER","🪙 OK THAT'S ENOUGH","🪙 SERIOUSLY, GO PLAY"];
+coin.addEventListener("click", function(){
+  n++;
+  out.textContent = n;
+  coin.textContent = lines[Math.min(n, lines.length-1)];
+  if (n === 10){ coin.textContent = "🪙 ACHIEVEMENT: PATIENT GAMER"; }
+});
+})();
+</script>
+</body>
+</html>
