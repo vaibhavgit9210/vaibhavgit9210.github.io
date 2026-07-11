@@ -219,9 +219,10 @@ a.spot:hover .go::after{margin-left:5px}
 .sg .chips{display:flex;flex-wrap:wrap;gap:8px}
 .sg .chips span{
   font-size:.82rem;padding:5px 12px;border-radius:8px;color:var(--muted);
-  border:1px solid var(--card-border);transition:all .2s;cursor:default;
+  border:1px solid var(--card-border);transition:all .2s;cursor:pointer;
 }
 .sg .chips span:hover{color:var(--text);border-color:var(--accent2);transform:translateY(-2px)}
+.sg .chips span:hover::after{content:" ?";color:var(--accent2);font-weight:700}
 
 /* contact */
 .contact{text-align:center;padding-bottom:40px}
@@ -401,19 +402,19 @@ footer a{color:var(--accent);text-decoration:none}
 
 <section id="skills">
   <h2 class="title reveal">Toolbox</h2>
-  <p class="sub reveal">What I reach for, grouped by how I actually use it.</p>
+  <p class="sub reveal">What I reach for, grouped by how I actually use it. Don't know one? Click it — you'll get the ELI5.</p>
   <div class="skillgroups">
     <div class="sg reveal"><h4>AI / LLM</h4><div class="chips">
-      <span>Agent Orchestration</span><span>Tool Calling</span><span>RAG</span><span>Prompt Evaluation</span><span>Anthropic API</span><span>OpenAI API</span><span>LanceDB</span><span>Embeddings</span>
+      <span data-q="AI agent orchestration">Agent Orchestration</span><span data-q="LLM tool calling">Tool Calling</span><span data-q="RAG (retrieval-augmented generation)">RAG</span><span data-q="LLM prompt evaluation">Prompt Evaluation</span><span>Anthropic API</span><span>OpenAI API</span><span data-q="LanceDB vector database">LanceDB</span><span data-q="embeddings in machine learning">Embeddings</span>
     </div></div>
     <div class="sg reveal"><h4>Data Engineering</h4><div class="chips">
-      <span>ETL/ELT Pipelines</span><span>Data Modeling</span><span>Redshift</span><span>PostgreSQL</span><span>MySQL</span><span>MongoDB</span><span>Batch &amp; Stream</span>
+      <span data-q="ETL and ELT data pipelines">ETL/ELT Pipelines</span><span data-q="data modeling in databases">Data Modeling</span><span data-q="Amazon Redshift">Redshift</span><span>PostgreSQL</span><span>MySQL</span><span>MongoDB</span><span data-q="batch vs stream data processing">Batch &amp; Stream</span>
     </div></div>
     <div class="sg reveal"><h4>Languages</h4><div class="chips">
       <span>Python</span><span>SQL</span><span>JavaScript</span><span>Java</span><span>C/C++</span>
     </div></div>
     <div class="sg reveal"><h4>Cloud &amp; Tools</h4><div class="chips">
-      <span>AWS (S3 · Lambda · Glue)</span><span>Docker</span><span>n8n</span><span>Pandas</span><span>PySpark</span><span>TensorFlow</span><span>Git</span>
+      <span data-q="AWS S3, Lambda and Glue">AWS (S3 · Lambda · Glue)</span><span>Docker</span><span data-q="n8n workflow automation">n8n</span><span>Pandas</span><span>PySpark</span><span>TensorFlow</span><span>Git</span>
     </div></div>
   </div>
 </section>
@@ -544,6 +545,16 @@ var so = new IntersectionObserver(function(entries){
   });
 },{threshold:.6});
 document.querySelectorAll(".stat .num").forEach(function(el){ so.observe(el); });
+
+/* ---------- clickable skill chips: ELI5 lookup ---------- */
+document.querySelectorAll(".sg .chips span").forEach(function(chip){
+  chip.title = "Click for the ELI5";
+  chip.addEventListener("click", function(){
+    var term = chip.dataset.q || chip.textContent;
+    var q = encodeURIComponent("Explain like I'm 5, in one sentence: " + term);
+    window.open("https://chatgpt.com/?q=" + q, "_blank", "noopener");
+  });
+});
 
 /* ---------- card tilt ---------- */
 if (!reduced && matchMedia("(hover:hover)").matches){
