@@ -279,10 +279,13 @@ function renderLoading(p) {
   $('body-' + p).innerHTML = rows[p].map(s => '<div class="skel" style="' + s + ';margin-bottom:10px"></div>').join('');
 }
 
-function renderError(p, apiName, staleRec) {
-  setChip(p, 'err', 'OFFLINE');
-  let html = '<div class="err-box">&#9888; can\'t reach ' + esc(apiName) +
-    ' <span class="retry">— retrying in <span id="retry-' + p + '">30</span>s</span></div>';
+function renderError(p, apiName, staleRec, opts = {}) {
+  setChip(p, 'err', opts.limited ? 'RATE LIMITED' : 'OFFLINE');
+  const msg = opts.limited
+    ? '&#9203; ' + esc(apiName) + ' rate limit hit (shared hourly quota)'
+    : '&#9888; can\'t reach ' + esc(apiName);
+  let html = '<div class="err-box">' + msg +
+    ' <span class="retry">— retrying in <span id="retry-' + p + '">' + (opts.secs || 30) + '</span>s</span></div>';
   if (staleRec && staleRec.data) {
     html += '<div class="stale-box">showing last-good data · <b>as of ' + fmtIST(staleRec.t) + '</b></div>' +
             '<div id="stale-' + p + '"></div>';
@@ -425,8 +428,8 @@ function tickClocks() {
 
 /* ---------- live orchestration ---------- */
 const retryTimers = {};
-function scheduleRetry(p, fn) {
-  let left = 30;
+function scheduleRetry(p, fn, secs) {
+  let left = secs || 30;
   clearInterval(retryTimers[p]);
   retryTimers[p] = setInterval(() => {
     left--;
@@ -470,8 +473,9 @@ async function loadLaunches() {
     renderLaunches(rec);
     if (rec.stale) return; /* stale render is fine; retry comes from hourly resync */
   } catch (e) {
-    renderError('launch', 'll.thespacedevs.com', store.get('launches'));
-    scheduleRetry('launch', loadLaunches);
+    const lim = /HTTP 429/.test(e.message);
+    renderError('launch', 'll.thespacedevs.com', store.get('launches'), { limited: lim, secs: lim ? 600 : 30 });
+    scheduleRetry('launch', loadLaunches, lim ? 600 : 30); /* retrying a 15/hr limit every 30s just re-exhausts it */
   }
 }
 async function loadAstros() {
@@ -479,8 +483,9 @@ async function loadAstros() {
     const rec = await cachedFetch('astros', API.astro, 60 * 60 * 1000);
     renderAstros(rec);
   } catch (e) {
-    renderError('astro', 'll.thespacedevs.com', store.get('astros'));
-    scheduleRetry('astro', loadAstros);
+    const lim = /HTTP 429/.test(e.message);
+    renderError('astro', 'll.thespacedevs.com', store.get('astros'), { limited: lim, secs: lim ? 600 : 30 });
+    scheduleRetry('astro', loadAstros, lim ? 600 : 30);
   }
 }
 async function loadAPOD() {
@@ -488,8 +493,9 @@ async function loadAPOD() {
     const rec = await cachedFetch('apod', API.apod, 24 * 60 * 60 * 1000);
     renderAPOD(rec);
   } catch (e) {
-    renderError('apod', 'api.nasa.gov', store.get('apod'));
-    scheduleRetry('apod', loadAPOD);
+    const lim = /HTTP 429/.test(e.message);
+    renderError('apod', 'api.nasa.gov', store.get('apod'), { limited: lim, secs: lim ? 600 : 30 });
+    scheduleRetry('apod', loadAPOD, lim ? 600 : 30);
   }
 }
 
