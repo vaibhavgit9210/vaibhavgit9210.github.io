@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gravity Well</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>%F0%9F%AA%90</text></svg>">
+<style>
+  :root{
+    --bg:#060a13; --text:#e6edf7; --muted:#8b98ad;
+    --cyan:#6ee7ff; --violet:#a78bfa; --pink:#f0abfc; --yellow:#fcd34d;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+  canvas#c{display:block;position:fixed;inset:0;touch-action:none;cursor:crosshair}
+  .back{position:fixed;top:12px;left:14px;z-index:20;color:var(--muted);
+    text-decoration:none;font-size:13px;letter-spacing:.04em;
+    padding:4px 8px;border-radius:8px;transition:color .15s}
+  .back:hover{color:var(--cyan)}
+  #hud{position:fixed;top:44px;left:14px;z-index:10;pointer-events:none;
+    color:var(--muted);font-size:12px;line-height:1.7;
+    text-shadow:0 1px 4px rgba(6,10,19,.9)}
+  #controls{position:fixed;top:10px;right:12px;z-index:20;display:flex;gap:8px}
+  #presets{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
+    z-index:20;display:flex;gap:8px}
+  button{
+    font:inherit;font-size:13px;color:var(--text);cursor:pointer;
+    background:rgba(230,237,247,.05);
+    border:1px solid rgba(110,231,255,.22);
+    border-radius:10px;padding:8px 12px;min-width:40px;min-height:38px;
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    transition:border-color .15s, background .15s;
+  }
+  button:hover{border-color:rgba(110,231,255,.55);background:rgba(110,231,255,.08)}
+  #infocard{position:fixed;top:112px;left:14px;z-index:10;font-size:12px;
+    color:var(--text);background:rgba(6,10,19,.72);
+    border:1px solid rgba(167,139,250,.35);border-radius:10px;
+    padding:10px 12px;line-height:1.7;pointer-events:none;
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  #infocard .k{color:var(--muted)}
+  #help{position:fixed;inset:0;z-index:30;display:flex;align-items:center;
+    justify-content:center;background:rgba(6,10,19,.6)}
+  #help[hidden],#infocard[hidden]{display:none}
+  .card{max-width:420px;margin:16px;padding:24px 26px;border-radius:14px;
+    background:rgba(10,16,28,.88);border:1px solid rgba(110,231,255,.28);
+    box-shadow:0 0 60px rgba(110,231,255,.08), 0 12px 40px rgba(0,0,0,.5);
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+  .card h1{font-size:17px;margin-bottom:12px;color:var(--cyan);
+    font-weight:600;letter-spacing:.04em}
+  .card p{font-size:13px;color:var(--text);line-height:1.75;margin-bottom:10px}
+  .card p b{color:var(--yellow);font-weight:600}
+  .card .hint{color:var(--muted);font-size:12px}
+  .card button{margin-top:12px;color:var(--cyan)}
+  #testout{position:fixed;top:70px;left:14px;z-index:40;font-size:14px;
+    white-space:pre-wrap;color:var(--text)}
+  @media (max-width:600px){
+    #hud{font-size:11px}
+    button{padding:8px 10px;font-size:12px}
+    #presets{bottom:10px}
+    .card{padding:18px}
+  }
+  @media (prefers-reduced-motion: reduce){
+    button{transition:none}
+    .back{transition:none}
+  }
+</style>
+</head>
+<body>
+<a class="back" href="../arcade/">&larr; arcade</a>
+<canvas id="c"></canvas>
+<div id="hud"></div>
+<div id="controls">
+  <button id="btnPause" title="pause / resume">&#9208;</button>
+  <button id="btnClear" title="reset to start">&#8634;</button>
+  <button id="btnSpeed" title="sim speed">1&times;</button>
+  <button id="btnHelp" title="help">?</button>
+</div>
+<div id="presets">
+  <button data-preset="binary">&#9737;&#9737; binary star</button>
+  <button data-preset="figure8">&infin; figure-8</button>
+</div>
+<div id="infocard" hidden></div>
+<div id="help" hidden>
+  <div class="card">
+    <h1>&#129704; gravity well</h1>
+    <p><b>Drag from empty space</b> to launch a planet — the drag vector sets its
+       velocity. Long drag = fast. A dotted ghost path predicts the orbit.</p>
+    <p class="hint">click a body to inspect &middot; double-click to delete &middot;
+       real n-body gravity — slingshots, merges and chaos included.</p>
+    <button id="btnGotIt">got it</button>
+  </div>
+</div>
+<div id="testout"></div>
+<script>
+'use strict';
+(function(){
+
+/* ============================================================
+   Physics core — pure functions, headless-testable (Gate M1)
+   ============================================================ */
+const G    = 1200;    // canvas-tuned gravitational constant
+const EPS2 = 25;      // softening: prevents slingshot-to-infinity on overlap
+const DT   = 1/120;   // fixed timestep (sim-seconds)
+const LAUNCH_K = 0.9; // drag px -> velocity px/s
+const TRAIL_LEN = 200;// trail ring-buffer points (sampled every 2nd frame)
+const MAX_BODIES = 60;
+
+function computeAccels(bodies){
+  const n = bodies.length;
+  const ax = new Float64Array(n), ay = new Float64Array(n);
+  for(let i=0;i<n;i++){
+    const bi = bodies[i];
+    for(let j=i+1;j<n;j++){
+      const bj = bodies[j];
+      const dx = bj.x - bi.x, dy = bj.y - bi.y;
+      const d2 = dx*dx + dy*dy + EPS2;      // softened
+      const d  = Math.sqrt(d2);
+      const f  = G / (d2 * d);              // a_i = G*mj*dx/(d2*d)
+      ax[i] += f * bj.m * dx;  ay[i] += f * bj.m * dy;
+      ax[j] -= f * bi.m * dx;  ay[j] -= f * bi.m * dy;
+    }
+  }
+  return [ax, ay];
+}
+
+// Semi-implicit (symplectic) Euler: velocity FIRST, then position.
+function step(bodies, dt){
+  const [ax, ay] = computeAccels(bodies);
+  for(let i=0;i<bodies.length;i++){
+    const b = bodies[i];
+    if(b.pinned) continue;
+    b.vx += ax[i]*dt;  b.vy += ay[i]*dt;   // v += a*dt  (FIRST)
+    b.x  += b.vx*dt;   b.y  += b.vy*dt;    // x += v*dt
+  }
+}
+
+function radiusFromMass(m){ return 2 + Math.cbrt(m); }
+
+function circularSpeed(M, d){ return Math.sqrt(G*M/d); }
+
+function velocityFromDrag(sx, sy, ex, ey){
+  return { vx:(ex-sx)*LAUNCH_K, vy:(ey-sy)*LAUNCH_K };
+}
+
+// Perfectly inelastic merge into the heavier body; returns the body to remove.
+function mergePair(a, b){
+  const keep = a.m >= b.m ? a : b;
+  const gone = keep === a ? b : a;
+  const m = a.m + b.m;
+  const vx = (a.m*a.vx + b.m*b.vx)/m, vy = (a.m*a.vy + b.m*b.vy)/m;
+  const x  = (a.m*a.x  + b.m*b.x )/m, y  = (a.m*a.y  + b.m*b.y )/m;
+  const pinned = !!(a.pinned || b.pinned);
+  if(pinned){
+    // immovable body survives: keep pinned position, kill velocity
+    const p = a.pinned ? a : b;
+    keep.x = p.x; keep.y = p.y; keep.vx = 0; keep.vy = 0;
+  }else{
+    keep.x = x; keep.y = y; keep.vx = vx; keep.vy = vy;
+  }
+  keep.m = m; keep.pinned = pinned;
+  keep.r = radiusFromMass(m);
+  return gone;
+}
+
+/* ============================================================
+   In-page test harness — ?test  (Gate M1 / Gate 3)
+   ============================================================ */
+const params = new URLSearchParams(location.search);
+
+function runTests(){
+  const results = [];
+  const T = (name, fn) => {
+    try{ results.push([name, !!fn(), '']); }
+    catch(e){ results.push([name, false, String(e && e.message || e)]); }
+  };
+
+  // a. circular orbit stays within ±3% of d=200 over 10,000 steps
+  T('circular orbit ±3% over 10000 steps', () => {
+    const M = 5000, d = 200;
+    const bodies = [
+      {x:0, y:0, vx:0, vy:0, m:M, pinned:true},
+      {x:d, y:0, vx:0, vy:circularSpeed(M,d), m:10, pinned:false}
+    ];
+    for(let i=0;i<10000;i++){
+      step(bodies, DT);
+      const r = Math.hypot(bodies[1].x, bodies[1].y);
+      if(Math.abs(r - d) > 0.03*d) return false;
+    }
+    return true;
+  });
+
+  // b. momentum conservation: random 5-body, 5000 steps, drift < 1e-6
+  T('momentum conserved (5 bodies, 5000 steps)', () => {
+    let s = 1337;
+    const rnd = () => { s|=0; s = s + 0x6D2B79F5 | 0;
+      let t = Math.imul(s ^ s>>>15, 1|s);
+      t = t + Math.imul(t ^ t>>>7, 61|t) ^ t;
+      return ((t ^ t>>>14) >>> 0) / 4294967296; };
+    const bodies = [];
+    for(let i=0;i<5;i++) bodies.push({
+      x:(rnd()-0.5)*600, y:(rnd()-0.5)*600,
+      vx:(rnd()-0.5)*100, vy:(rnd()-0.5)*100,
+      m:5 + rnd()*45, pinned:false });
+    const px0 = bodies.reduce((s,b)=>s+b.m*b.vx, 0);
+    const py0 = bodies.reduce((s,b)=>s+b.m*b.vy, 0);
+    for(let i=0;i<5000;i++) step(bodies, DT);
+    const px1 = bodies.reduce((s,b)=>s+b.m*b.vx, 0);
+    const py1 = bodies.reduce((s,b)=>s+b.m*b.vy, 0);
+    return Math.abs(px1-px0) < 1e-6 && Math.abs(py1-py0) < 1e-6;
+  });
+
+  // c. merge conserves momentum and mass
+  T('merge conserves momentum + mass', () => {
+    const a = {x:10, y:20, vx:3,  vy:-2, m:10, pinned:false, r:radiusFromMass(10)};
+    const b = {x:12, y:21, vx:-1, vy:4,  m:30, pinned:false, r:radiusFromMass(30)};
+    const m0 = a.m + b.m;
+    const px0 = a.m*a.vx + b.m*b.vx, py0 = a.m*a.vy + b.m*b.vy;
+    const gone = mergePair(a, b);
+    const keep = gone === a ? b : a;
+    return Math.abs(keep.m - m0) < 1e-9 &&
+           Math.abs(keep.m*keep.vx - px0) < 1e-9 &&
+           Math.abs(keep.m*keep.vy - py0) < 1e-9;
+  });
+
+  // d. softening: coincident bodies stay finite for 100 steps
+  T('softening: coincident bodies stay finite', () => {
+    const bodies = [
+      {x:50, y:50, vx:0, vy:0, m:100, pinned:false},
+      {x:50, y:50, vx:0, vy:0, m:100, pinned:false}
+    ];
+    for(let i=0;i<100;i++) step(bodies, DT);
+    return bodies.every(b =>
+      Number.isFinite(b.x) && Number.isFinite(b.y) &&
+      Number.isFinite(b.vx) && Number.isFinite(b.vy));
+  });
+
+  // e. velocityFromDrag pure-function math
+  T('velocityFromDrag scales drag vector by k', () => {
+    const v1 = velocityFromDrag(0, 0, 100, 0);
+    const v2 = velocityFromDrag(100, 100, 250, 180);
+    return Math.abs(v1.vx - 100*LAUNCH_K) < 1e-12 && Math.abs(v1.vy) < 1e-12 &&
+           Math.abs(v2.vx - 150*LAUNCH_K) < 1e-12 &&
+           Math.abs(v2.vy - 80*LAUNCH_K) < 1e-12;
+  });
+
+  // f. figure-8 ICs integrate 2 periods without NaN or blow-up
+  T('figure-8 stays finite + bounded for 2 periods', () => {
+    const bodies = figure8Bodies(0, 0).map(b =>
+      ({x:b.x, y:b.y, vx:b.vx, vy:b.vy, m:b.m, pinned:false}));
+    const steps = Math.round(2 * FIG8_PERIOD / DT);
+    for(let i=0;i<steps;i++){
+      step(bodies, DT);
+      for(const b of bodies){
+        if(!Number.isFinite(b.x) || !Number.isFinite(b.y)) return false;
+        if(Math.hypot(b.x, b.y) > 2000) return false;
+      }
+    }
+    return true;
+  });
+
+  const pass = results.filter(r => r[1]).length;
+  const msg = pass === results.length
+    ? `TESTS PASS ${pass}/${results.length}`
+    : `TESTS FAIL ${pass}/${results.length}: ` +
+      results.filter(r=>!r[1]).map(r=>r[0]+(r[2]?' ('+r[2]+')':'')).join('; ');
+  document.title = msg;
+  const out = document.getElementById('testout');
+  out.textContent = msg + '\n' + results.map(r =>
+    (r[1] ? '  ok  ' : ' FAIL ') + r[0]).join('\n');
+}
+
+/* ============================================================
+   Presets (initial conditions)
+   ============================================================ */
+// Figure-8 three-body choreography (Chenciner–Montgomery), normalized G=1,
+// masses=1, scaled to canvas: length L, mass m, v-scale sqrt(G*m/L).
+const FIG8_L = 180, FIG8_M = 500;
+const FIG8_TAU = Math.sqrt(FIG8_L*FIG8_L*FIG8_L / (G*FIG8_M)); // time scale
+const FIG8_PERIOD = 6.3259 * FIG8_TAU;
+
+function figure8Bodies(cx, cy){
+  const vs = Math.sqrt(G*FIG8_M/FIG8_L);
+  const r1x = -0.97000436*FIG8_L, r1y = 0.24308753*FIG8_L;
+  const v2x = -0.93240737*vs,     v2y = -0.86473146*vs;
+  const cols = [PALETTE.cyan, PALETTE.violet, PALETTE.pink];
+  return [
+    mkBody(cx+r1x, cy+r1y, -v2x/2, -v2y/2, FIG8_M, cols[0]),
+    mkBody(cx,     cy,      v2x,    v2y,   FIG8_M, cols[1]),
+    mkBody(cx-r1x, cy-r1y, -v2x/2, -v2y/2, FIG8_M, cols[2])
+  ];
+}
+
+const PALETTE = {
+  bg:'#060a13', cyan:'#6ee7ff', violet:'#a78bfa',
+  pink:'#f0abfc', yellow:'#fcd34d', muted:'#8b98ad'
+};
+
+function mkBody(x, y, vx, vy, m, color, pinned){
+  return {
+    x, y, vx, vy, m,
+    r: radiusFromMass(m),
+    color: color || PALETTE.cyan,
+    pinned: !!pinned,
+    trail: new Float32Array(TRAIL_LEN*2),
+    tHead: 0, tCount: 0
+  };
+}
+
+function presetSolo(cx, cy){
+  const M = 5000, d = 180;
+  return [
+    mkBody(cx, cy, 0, 0, M, PALETTE.yellow, true),
+    mkBody(cx + d, cy, 0, -circularSpeed(M, d), 12, PALETTE.cyan)
+  ];
+}
+
+function presetBinary(cx, cy){
+  const m = 2500, sep = 260, r = sep/2;
+  const v = Math.sqrt(G*m/(2*sep));      // circular around common COM
+  const dP = 370, vP = Math.sqrt(G*2*m/dP);
+  return [
+    mkBody(cx + r, cy, 0,  v, m, PALETTE.yellow, false),
+    mkBody(cx - r, cy, 0, -v, m, PALETTE.pink,   false),
+    mkBody(cx, cy - dP, -vP, 0, 14, PALETTE.cyan)
+  ];
+}
+
+/* ============================================================
+   Simulation runtime + rendering
+   ============================================================ */
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const infocard = document.getElementById('infocard');
+const helpEl = document.getElementById('help');
+
+const reduceMotion = window.matchMedia &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let W = 0, H = 0, DPR = 1;
+let starfield = null;               // offscreen canvas, drawn once per resize
+let bodies = [];
+let sparks = [];
+let selected = null;
+let paused = false;
+let speed = 1;                      // 0.5 | 1 | 4
+let simT = 0;
+let frameCount = 0;
+let demoArmed = false;   // ?demo: launch 3 planets at sim-time 1s
+let spawnColorIdx = 0;
+const SPAWN_COLORS = [PALETTE.cyan, PALETTE.violet, PALETTE.pink];
+
+// drag state
+let drag = null;                    // {sx, sy, cx, cy}
+let lastTap = {t: 0, body: null};
+
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 3);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width  = Math.round(W * DPR);
+  canvas.height = Math.round(H * DPR);
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  buildStarfield();
+}
+
+function buildStarfield(){
+  // ~150 static stars drawn ONCE offscreen, blitted every frame
+  starfield = document.createElement('canvas');
+  starfield.width = canvas.width; starfield.height = canvas.height;
+  const s = starfield.getContext('2d');
+  s.setTransform(DPR, 0, 0, DPR, 0, 0);
+  s.fillStyle = PALETTE.bg;
+  s.fillRect(0, 0, W, H);
+  let seed = 42;
+  const rnd = () => { seed|=0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed>>>15, 1|seed);
+    t = t + Math.imul(t ^ t>>>7, 61|t) ^ t;
+    return ((t ^ t>>>14) >>> 0) / 4294967296; };
+  for(let i=0;i<150;i++){
+    const x = rnd()*W, y = rnd()*H;
+    const sz = rnd() < 0.85 ? 1 : 1.6;
+    const a = 0.15 + rnd()*0.55;
+    s.fillStyle = rnd() < 0.12 ? 'rgba(110,231,255,'+a.toFixed(2)+')'
+                               : 'rgba(230,237,247,'+a.toFixed(2)+')';
+    s.beginPath(); s.arc(x, y, sz*0.7, 0, Math.PI*2); s.fill();
+  }
+}
+
+function pushTrail(b){
+  if(b.pinned) return;
+  b.trail[b.tHead*2] = b.x; b.trail[b.tHead*2+1] = b.y;
+  b.tHead = (b.tHead + 1) % TRAIL_LEN;
+  if(b.tCount < TRAIL_LEN) b.tCount++;
+}
+
+function addBody(b){
+  while(bodies.length >= MAX_BODIES){
+    const i = bodies.findIndex(x => !x.pinned);
+    if(i < 0) break;
+    if(bodies[i] === selected) selected = null;
+    bodies.splice(i, 1);
+  }
+  bodies.push(b);
+  return b;
+}
+
+function removeBody(b){
+  const i = bodies.indexOf(b);
+  if(i >= 0) bodies.splice(i, 1);
+  if(selected === b) selected = null;
+}
+
+function spawnSparks(x, y, color){
+  if(reduceMotion) return;
+  for(let i=0;i<12;i++){
+    const a = Math.random()*Math.PI*2, sp = 40 + Math.random()*110;
+    sparks.push({x, y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp,
+                 life:0.5, max:0.5, color});
+  }
+}
+
+function handleCollisions(){
+  for(let i=0;i<bodies.length;i++){
+    for(let j=i+1;j<bodies.length;j++){
+      const a = bodies[i], b = bodies[j];
+      const d = Math.hypot(b.x-a.x, b.y-a.y);
+      if(d < 0.7*(a.r + b.r)){
+        const mx = (a.m*a.x + b.m*b.x)/(a.m+b.m);
+        const my = (a.m*a.y + b.m*b.y)/(a.m+b.m);
+        const gone = mergePair(a, b);
+        spawnSparks(mx, my, gone.color);
+        if(selected === gone) selected = (gone===a ? b : a);
+        removeBody(gone);
+        if(gone === a){ i--; break; } else { j--; }
+      }
+    }
+  }
+}
+
+function cleanupFar(){
+  const limit = 3 * Math.hypot(W, H);
+  const cx = W/2, cy = H/2;
+  for(let i=bodies.length-1;i>=0;i--){
+    const b = bodies[i];
+    if(!b.pinned && Math.hypot(b.x-cx, b.y-cy) > limit){
+      if(selected === b) selected = null;
+      bodies.splice(i, 1);
+    }
+  }
+}
+
+function bodyAt(x, y){
+  for(let i=bodies.length-1;i>=0;i--){
+    const b = bodies[i];
+    if(Math.hypot(b.x-x, b.y-y) <= Math.max(b.r + 4, 14)) return b;
+  }
+  return null;
+}
+
+/* ---------------- ghost preview ---------------- */
+function ghostPath(cand){
+  const sim = bodies.map(b =>
+    ({x:b.x, y:b.y, vx:b.vx, vy:b.vy, m:b.m, pinned:b.pinned}));
+  const c = {x:cand.x, y:cand.y, vx:cand.vx, vy:cand.vy, m:cand.m, pinned:false};
+  sim.push(c);
+  const pts = [];
+  for(let i=0;i<420;i++){
+    step(sim, DT);
+    if(i % 7 === 0) pts.push(c.x, c.y);
+  }
+  return pts;
+}
+
+/* ---------------- rendering ---------------- */
+function hexToRgb(hex){
+  return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16),
+          parseInt(hex.slice(5,7),16)];
+}
+const rgbCache = {};
+function rgba(hex, a){
+  let c = rgbCache[hex];
+  if(!c){ c = rgbCache[hex] = hexToRgb(hex).join(','); }
+  return 'rgba('+c+','+a+')';
+}
+
+function drawTrails(){
+  const BUCKETS = 6;
+  ctx.lineWidth = 1.4;
+  ctx.lineCap = 'round';
+  for(const b of bodies){
+    if(b.tCount < 2) continue;
+    for(let bk=0;bk<BUCKETS;bk++){
+      const from = Math.floor(b.tCount * bk / BUCKETS);
+      const to   = Math.floor(b.tCount * (bk+1) / BUCKETS);
+      if(to - from < 1) continue;
+      ctx.strokeStyle = rgba(b.color, (0.35 * (bk + 0.5) / BUCKETS).toFixed(3));
+      ctx.beginPath();
+      for(let k=Math.max(from-1,0);k<to;k++){
+        const idx = ((b.tHead - b.tCount + k + TRAIL_LEN*2) % TRAIL_LEN) * 2;
+        const x = b.trail[idx], y = b.trail[idx+1];
+        if(k === Math.max(from-1,0)) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      // connect newest bucket to current position
+      if(bk === BUCKETS-1) ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawBody(b){
+  const glowR = b.m >= 1000 ? b.r*5 : b.r*3;
+  let pulse = 1;
+  if(b.m >= 1000 && !reduceMotion) pulse = 1 + 0.06*Math.sin(simT*2.2);
+  const g = ctx.createRadialGradient(b.x, b.y, b.r*0.3, b.x, b.y, glowR*pulse);
+  g.addColorStop(0, rgba(b.color, b.m >= 1000 ? 0.5 : 0.35));
+  g.addColorStop(1, rgba(b.color, 0));
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(b.x, b.y, glowR*pulse, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = b.color;
+  ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.beginPath(); ctx.arc(b.x - b.r*0.25, b.y - b.r*0.25, b.r*0.45, 0, Math.PI*2);
+  ctx.fill();
+}
+
+function drawSparks(dt){
+  for(let i=sparks.length-1;i>=0;i--){
+    const p = sparks[i];
+    p.life -= dt;
+    if(p.life <= 0){ sparks.splice(i,1); continue; }
+    p.x += p.vx*dt; p.y += p.vy*dt;
+    ctx.fillStyle = rgba(p.color, (p.life/p.max*0.9).toFixed(3));
+    ctx.fillRect(p.x-1.2, p.y-1.2, 2.4, 2.4);
+  }
+}
+
+function drawDrag(){
+  if(!drag) return;
+  const v = velocityFromDrag(drag.sx, drag.sy, drag.cx, drag.cy);
+  const cand = {x:drag.sx, y:drag.sy, vx:v.vx, vy:v.vy, m:10};
+  // ghost path (dotted)
+  const pts = ghostPath(cand);
+  for(let i=0;i<pts.length;i+=2){
+    const a = 0.55 * (1 - i/pts.length);
+    ctx.fillStyle = rgba(PALETTE.cyan, a.toFixed(3));
+    ctx.beginPath(); ctx.arc(pts[i], pts[i+1], 1.6, 0, Math.PI*2); ctx.fill();
+  }
+  // aiming line + arrowhead = velocity vector
+  ctx.strokeStyle = rgba(PALETTE.cyan, 0.8);
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(drag.sx, drag.sy); ctx.lineTo(drag.cx, drag.cy);
+  ctx.stroke();
+  const ang = Math.atan2(drag.cy - drag.sy, drag.cx - drag.sx);
+  ctx.beginPath();
+  ctx.moveTo(drag.cx, drag.cy);
+  ctx.lineTo(drag.cx - 9*Math.cos(ang - 0.4), drag.cy - 9*Math.sin(ang - 0.4));
+  ctx.lineTo(drag.cx - 9*Math.cos(ang + 0.4), drag.cy - 9*Math.sin(ang + 0.4));
+  ctx.closePath();
+  ctx.fillStyle = rgba(PALETTE.cyan, 0.8);
+  ctx.fill();
+  // spawn point marker
+  ctx.strokeStyle = rgba(PALETTE.cyan, 0.5);
+  ctx.beginPath(); ctx.arc(drag.sx, drag.sy, 5, 0, Math.PI*2); ctx.stroke();
+}
+
+function drawSelection(){
+  if(!selected) return;
+  ctx.strokeStyle = rgba(PALETTE.yellow, 0.75);
+  ctx.setLineDash([4, 4]);
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(selected.x, selected.y, selected.r + 7, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+/* ---------------- HUD / info card ---------------- */
+let fps = 0, fpsFrames = 0, fpsLast = 0;
+function updateHUD(now){
+  fpsFrames++;
+  if(now - fpsLast >= 500){
+    fps = Math.round(fpsFrames * 1000 / (now - fpsLast));
+    fpsFrames = 0; fpsLast = now;
+  }
+  const spd = speed === 0.5 ? '&#189;&times;' : speed + '&times;';
+  hud.innerHTML = 'bodies ' + bodies.length + ' &middot; ' + spd +
+    ' &middot; ' + fps + 'fps' + (paused ? ' &middot; paused' : '');
+
+  if(selected && bodies.indexOf(selected) >= 0){
+    const b = selected;
+    const sp = Math.hypot(b.vx, b.vy);
+    let central = null;
+    for(const o of bodies) if(o !== b && (!central || o.m > central.m)) central = o;
+    let period = '&mdash;';
+    if(central && central.m > b.m){
+      const d = Math.hypot(b.x-central.x, b.y-central.y);
+      period = '~' + (2*Math.PI*Math.sqrt(d*d*d/(G*central.m))).toFixed(1) + 's';
+    }
+    infocard.innerHTML =
+      '<span class="k">'+(b.m >= 1000 ? 'star' : 'planet')+'</span><br>' +
+      '<span class="k">mass</span> ' + b.m.toFixed(0) +
+      ' &middot; <span class="k">speed</span> ' + sp.toFixed(0) + ' px/s<br>' +
+      '<span class="k">orbit</span> ' + period;
+    infocard.hidden = false;
+  }else{
+    infocard.hidden = true;
+  }
+}
+
+function maybeDemoSpawn(){
+  if(!demoArmed || simT < 1) return;
+  demoArmed = false;
+  const cx = W/2, cy = H/2;
+  addBody(mkBody(cx+260, cy,      0,   -140, 10, PALETTE.violet));
+  addBody(mkBody(cx-160, cy-160,  115, -115, 10, PALETTE.pink));
+  addBody(mkBody(cx,     cy+290, -135,  20,  10, PALETTE.cyan));
+}
+
+/* ---------------- main loop ---------------- */
+let last = 0, acc = 0;
+function frame(now){
+  requestAnimationFrame(frame);
+  if(!last) last = now;
+  const el = Math.min((now - last)/1000, 0.1);
+  last = now;
+
+  if(!paused){
+    acc += el * speed;
+    let n = 0;
+    while(acc >= DT && n < 16){
+      step(bodies, DT);
+      handleCollisions();
+      simT += DT;
+      maybeDemoSpawn();
+      acc -= DT; n++;
+    }
+    if(acc >= DT) acc = 0;   // frame too slow: drop sim time, never grow dt
+    cleanupFar();
+    frameCount++;
+    if(frameCount % 2 === 0) for(const b of bodies) pushTrail(b);
+  }
+
+  // draw
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(starfield, 0, 0);
+  ctx.restore();
+  drawTrails();
+  drawDrag();
+  for(const b of bodies) drawBody(b);
+  drawSparks(paused ? 0 : el);
+  drawSelection();
+  updateHUD(now);
+}
+
+/* ---------------- interaction ---------------- */
+canvas.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  canvas.setPointerCapture(e.pointerId);
+  const x = e.clientX, y = e.clientY;
+  const hit = bodyAt(x, y);
+  if(hit){
+    drag = null;
+    canvas._pendingTap = hit;
+  }else{
+    drag = {sx:x, sy:y, cx:x, cy:y};
+    canvas._pendingTap = null;
+  }
+});
+
+canvas.addEventListener('pointermove', e => {
+  if(drag){ drag.cx = e.clientX; drag.cy = e.clientY; }
+});
+
+canvas.addEventListener('pointerup', e => {
+  const x = e.clientX, y = e.clientY;
+  const now = performance.now();
+  if(drag){
+    const dx = x - drag.sx, dy = y - drag.sy;
+    if(Math.hypot(dx, dy) < 6){
+      selected = null;              // tap empty space = deselect
+    }else{
+      const v = velocityFromDrag(drag.sx, drag.sy, x, y);
+      const color = SPAWN_COLORS[spawnColorIdx++ % SPAWN_COLORS.length];
+      addBody(mkBody(drag.sx, drag.sy, v.vx, v.vy, 10, color));
+    }
+    drag = null;
+  }else if(canvas._pendingTap){
+    const b = canvas._pendingTap;
+    if(bodyAt(x, y) === b){
+      if(lastTap.body === b && now - lastTap.t < 350){
+        removeBody(b);              // double-click/tap = delete
+        lastTap = {t:0, body:null};
+      }else{
+        selected = b;               // single click = select
+        lastTap = {t:now, body:b};
+      }
+    }
+    canvas._pendingTap = null;
+  }
+});
+
+canvas.addEventListener('pointercancel', () => {
+  drag = null; canvas._pendingTap = null;
+});
+
+/* ---------------- controls ---------------- */
+const btnPause = document.getElementById('btnPause');
+const btnSpeed = document.getElementById('btnSpeed');
+btnPause.addEventListener('click', () => {
+  paused = !paused;
+  btnPause.innerHTML = paused ? '&#9654;' : '&#9208;';
+});
+document.getElementById('btnClear').addEventListener('click', () => {
+  bodies = presetSolo(W/2, H/2);
+  sparks = []; selected = null; simT = 0;
+});
+btnSpeed.addEventListener('click', () => {
+  speed = speed === 0.5 ? 1 : speed === 1 ? 4 : 0.5;
+  btnSpeed.innerHTML = speed === 0.5 ? '&#128034; &#189;&times;'
+                     : speed === 1   ? '1&times;'
+                     : '&#128007; 4&times;';
+});
+document.getElementById('btnHelp').addEventListener('click', () => {
+  helpEl.hidden = !helpEl.hidden;
+});
+document.getElementById('btnGotIt').addEventListener('click', () => {
+  helpEl.hidden = true;
+  try{ localStorage.setItem('gw-help-seen', '1'); }catch(e){}
+});
+document.querySelectorAll('#presets button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = btn.dataset.preset;
+    bodies = p === 'binary' ? presetBinary(W/2, H/2) : figure8Bodies(W/2, H/2);
+    sparks = []; selected = null; simT = 0;
+  });
+});
+
+/* ---------------- boot ---------------- */
+window.addEventListener('resize', resize);
+resize();
+
+if(params.has('test')){
+  runTests();
+}else{
+  const preset = params.get('preset');
+  if(preset === 'binary')       bodies = presetBinary(W/2, H/2);
+  else if(preset === 'figure8') bodies = figure8Bodies(W/2, H/2);
+  else                          bodies = presetSolo(W/2, H/2);
+
+  // help overlay on first visit only (never in automated modes)
+  const auto = params.has('demo') || params.has('warp') || preset;
+  let seen = true;
+  try{ seen = !!localStorage.getItem('gw-help-seen'); }catch(e){}
+  if(!seen && !auto) helpEl.hidden = false;
+
+  demoArmed = params.has('demo');
+
+  // ?warp=<sim-seconds>: synchronously pre-step the sim before first paint.
+  // Deterministic screenshots — headless virtual time barely advances rAF.
+  const warp = parseFloat(params.get('warp') || '0');
+  if(warp > 0){
+    const steps = Math.min(Math.round(warp / DT), 120000);
+    for(let i=0;i<steps;i++){
+      step(bodies, DT);
+      handleCollisions();
+      simT += DT;
+      maybeDemoSpawn();
+      if(i % 4 === 3) for(const b of bodies) pushTrail(b); // ~30Hz, like live
+    }
+    cleanupFar();
+  }
+
+  requestAnimationFrame(frame);
+}
+
+})();
+</script>
+</body>
+</html>

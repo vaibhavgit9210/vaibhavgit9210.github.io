@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>space · right now</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛰️</text></svg>">
+<style>
+:root{
+  --bg:#060a13; --text:#e6edf7; --muted:#8b98ad;
+  --cyan:#6ee7ff; --violet:#a78bfa; --pink:#f0abfc; --yellow:#fcd34d;
+  --glass:rgba(255,255,255,.04); --edge:rgba(255,255,255,.09);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg)}
+body{
+  background:
+    radial-gradient(1100px 500px at 80% -10%, rgba(167,139,250,.08), transparent 60%),
+    radial-gradient(900px 500px at 10% 110%, rgba(110,231,255,.06), transparent 60%),
+    var(--bg);
+  color:var(--text); font-family:var(--mono); min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--cyan)}
+.arcade-link{
+  position:fixed; top:10px; left:12px; z-index:50; text-decoration:none;
+  font-size:12px; letter-spacing:.08em; color:var(--muted);
+  background:var(--glass); border:1px solid var(--edge); border-radius:8px;
+  padding:5px 10px; backdrop-filter:blur(6px);
+}
+.arcade-link:hover{color:var(--cyan); border-color:rgba(110,231,255,.4)}
+header{
+  max-width:1180px; margin:0 auto; padding:54px 16px 6px;
+  display:flex; flex-wrap:wrap; align-items:baseline; gap:10px 22px;
+}
+header h1{
+  font-size:clamp(19px,3.4vw,28px); letter-spacing:.18em; font-weight:700;
+  text-shadow:0 0 22px rgba(110,231,255,.35);
+}
+header h1 .dim{color:var(--muted); font-weight:400}
+.live-dot{
+  display:inline-block; width:9px; height:9px; border-radius:50%;
+  background:#4ade80; box-shadow:0 0 8px #4ade80; vertical-align:2px; margin-right:8px;
+  animation:pulse 1.6s ease-in-out infinite;
+}
+.clocks{display:flex; gap:18px; font-size:13px; color:var(--muted); margin-left:auto}
+.clocks b{color:var(--text); font-weight:600; font-variant-numeric:tabular-nums}
+main{
+  max-width:1180px; margin:0 auto; padding:14px 16px 40px;
+  display:grid; grid-template-columns:3fr 2fr; gap:14px;
+}
+.panel{
+  background:var(--glass); border:1px solid var(--edge); border-radius:14px;
+  padding:14px 16px; min-height:150px; position:relative; overflow:hidden;
+  backdrop-filter:blur(6px);
+}
+.panel-head{
+  display:flex; align-items:center; gap:10px; margin-bottom:10px;
+  font-size:12px; letter-spacing:.14em; color:var(--muted);
+}
+.panel-head .t{color:var(--text); font-weight:600}
+.chip{
+  margin-left:auto; font-size:10px; letter-spacing:.1em; padding:2px 8px;
+  border-radius:999px; border:1px solid var(--edge); color:var(--muted);
+}
+.chip.live{color:#4ade80; border-color:rgba(74,222,128,.35)}
+.chip.stale{color:var(--yellow); border-color:rgba(252,211,77,.35)}
+.chip.err{color:var(--pink); border-color:rgba(240,171,252,.4)}
+/* ---- map ---- */
+.mapwrap{aspect-ratio:2/1; width:100%; border:1px solid var(--edge); border-radius:10px;
+  background:rgba(0,0,0,.25); overflow:hidden}
+.mapwrap svg{display:block; width:100%; height:100%}
+.coast{fill:none; stroke:var(--muted); stroke-opacity:.55; stroke-width:1}
+.grat{stroke:var(--edge); stroke-width:.6}
+.track{fill:none; stroke:var(--cyan); stroke-width:1.6; stroke-linecap:round}
+.predict{fill:none; stroke:var(--violet); stroke-width:1.4; stroke-dasharray:3 6; opacity:.8}
+.iss-dot{fill:var(--cyan)}
+.iss-glow{fill:none; stroke:var(--cyan); opacity:.8; animation:ping 2.2s ease-out infinite; transform-origin:center; transform-box:fill-box}
+.footprint{fill:rgba(110,231,255,.05); stroke:rgba(110,231,255,.25); stroke-width:.8}
+.readouts{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:8px; margin-top:10px}
+.readouts .r{background:rgba(0,0,0,.22); border:1px solid var(--edge); border-radius:8px; padding:7px 9px}
+.readouts .k{font-size:10px; letter-spacing:.12em; color:var(--muted)}
+.readouts .v{font-size:15px; margin-top:2px; font-variant-numeric:tabular-nums}
+.readouts .v .u{font-size:10px; color:var(--muted)}
+.over-line{margin-top:8px; font-size:12px; color:var(--muted)}
+.over-line b{color:var(--text)}
+/* ---- humans ---- */
+.big-count{font-size:64px; line-height:1; font-weight:700; color:var(--cyan);
+  text-shadow:0 0 30px rgba(110,231,255,.4)}
+.big-label{font-size:11px; letter-spacing:.14em; color:var(--muted); margin:4px 0 12px}
+.craft{margin-top:10px}
+.craft h3{font-size:11px; letter-spacing:.14em; color:var(--violet); margin-bottom:5px}
+.craft ul{list-style:none; font-size:13px; line-height:1.75}
+.craft li .ag{color:var(--muted); font-size:11px}
+.foot-note{margin-top:12px; font-size:10px; color:var(--muted)}
+.foot-note a{color:var(--muted)}
+/* ---- launches ---- */
+.launch{display:flex; flex-wrap:wrap; gap:4px 12px; align-items:baseline;
+  padding:9px 2px; border-bottom:1px dashed var(--edge)}
+.launch:last-child{border-bottom:none}
+.launch .nm{font-size:13px; font-weight:600; flex:1 1 220px}
+.launch .meta{font-size:11px; color:var(--muted); flex:1 1 100%}
+.launch .st{font-size:10px; padding:1px 7px; border-radius:999px; border:1px solid var(--edge); color:var(--muted)}
+.launch .st.go{color:#4ade80; border-color:rgba(74,222,128,.35)}
+.cd{font-size:14px; color:var(--yellow); font-variant-numeric:tabular-nums; white-space:nowrap}
+.cd .sep{animation:blink 1s step-end infinite}
+.cd.t0{color:var(--pink)}
+/* ---- apod ---- */
+.apod-img{width:100%; max-height:260px; object-fit:cover; border-radius:10px; border:1px solid var(--edge); display:block}
+.apod-title{font-size:14px; font-weight:600; margin:10px 0 2px; color:var(--pink)}
+.apod-date{font-size:10px; color:var(--muted); letter-spacing:.1em}
+.apod-x{font-size:12px; color:var(--muted); line-height:1.55; margin-top:6px;
+  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; cursor:pointer}
+.apod-x.open{-webkit-line-clamp:unset; display:block}
+.apod-x::after{content:" [tap to expand]"; color:var(--violet)}
+.apod-x.open::after{content:" [collapse]"}
+.apod-video{display:block; border:1px solid var(--edge); border-radius:10px; padding:26px 14px;
+  text-align:center; text-decoration:none; color:var(--cyan); font-size:13px; background:rgba(0,0,0,.25)}
+.apod-video:hover{border-color:rgba(110,231,255,.4)}
+/* ---- states ---- */
+.skel{border-radius:8px; background:linear-gradient(100deg,rgba(255,255,255,.04) 30%,rgba(255,255,255,.10) 50%,rgba(255,255,255,.04) 70%);
+  background-size:200% 100%; animation:shimmer 1.4s linear infinite}
+.err-box{border:1px dashed rgba(240,171,252,.4); border-radius:10px; padding:14px;
+  font-size:12px; color:var(--pink); line-height:1.6}
+.err-box .retry{color:var(--muted)}
+.stale-box{margin-top:10px; font-size:11px; color:var(--muted)}
+.stale-box b{color:var(--yellow)}
+#test-banner{display:none; position:fixed; bottom:8px; right:10px; z-index:60;
+  font-size:12px; padding:6px 12px; border-radius:8px; background:#0b1322; border:1px solid var(--edge)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes blink{50%{opacity:.25}}
+@keyframes shimmer{to{background-position:-200% 0}}
+@keyframes ping{0%{transform:scale(1);opacity:.8}100%{transform:scale(3.2);opacity:0}}
+@media (max-width:800px){
+  main{grid-template-columns:1fr}
+  .clocks{margin-left:0; flex-wrap:wrap; gap:8px 16px}
+  .big-count{font-size:48px}
+  header{padding-top:50px}
+}
+@media (prefers-reduced-motion:reduce){
+  .live-dot,.cd .sep,.skel,.iss-glow{animation:none}
+  .iss-glow{display:none}
+}
+</style>
+</head>
+<body>
+<a class="arcade-link" href="../arcade/">&larr; arcade</a>
+<header>
+  <h1><span class="live-dot" aria-hidden="true"></span>SPACE <span class="dim">·</span> RIGHT NOW</h1>
+  <div class="clocks">
+    <span>UTC <b id="clock-utc">--:--:--</b></span>
+    <span>IST <b id="clock-ist">--:--:--</b></span>
+  </div>
+</header>
+<main>
+  <section class="panel" id="p-iss" aria-label="ISS position">
+    <div class="panel-head"><span class="t">ISS · LIVE POSITION</span><span class="chip" id="chip-iss">…</span></div>
+    <div class="panel-body" id="body-iss"></div>
+  </section>
+  <section class="panel" id="p-astro" aria-label="Humans in space">
+    <div class="panel-head"><span class="t">HUMANS IN SPACE</span><span class="chip" id="chip-astro">…</span></div>
+    <div class="panel-body" id="body-astro"></div>
+  </section>
+  <section class="panel" id="p-launch" aria-label="Next launches">
+    <div class="panel-head"><span class="t">NEXT LAUNCHES</span><span class="chip" id="chip-launch">…</span></div>
+    <div class="panel-body" id="body-launch"></div>
+  </section>
+  <section class="panel" id="p-apod" aria-label="NASA photo of the day">
+    <div class="panel-head"><span class="t">NASA · PHOTO OF THE DAY</span><span class="chip" id="chip-apod">…</span></div>
+    <div class="panel-body" id="body-apod"></div>
+  </section>
+</main>
+<div id="test-banner"></div>
+<script>
+'use strict';
+/* ================================================================
+   SPACE · RIGHT NOW — live orbital dashboard (single file, no libs)
+   APIs: api.wheretheiss.at, ll.thespacedevs.com, api.nasa.gov
+   Flags: ?test  ?state=loading|error  ?mock  ?apodvideo
+   ================================================================ */
+
+/* ---------- config ---------- */
+const NASA_KEY = 'DEMO_KEY'; // swap for a personal key any time
+const API = {
+  iss:    'https://api.wheretheiss.at/v1/satellites/25544',
+  issFut: ts => 'https://api.wheretheiss.at/v1/satellites/25544/positions?timestamps=' + ts.join(',') + '&units=kilometers',
+  launch: 'https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=5&mode=list',
+  astro:  'https://ll.thespacedevs.com/2.2.0/astronaut/?in_space=true&limit=30',
+  apod:   'https://api.nasa.gov/planetary/apod?api_key=' + NASA_KEY
+};
+const MAP_W = 1000, MAP_H = 500;
+const Q = new URLSearchParams(location.search);
+const MODE = Q.has('test') ? 'test'
+           : (Q.get('state') === 'loading' || Q.get('state') === 'error') ? Q.get('state')
+           : Q.has('mock') ? 'mock' : 'live';
+
+/* Embedded coastline: Natural Earth 110m, RDP-simplified offline to an
+   equirectangular 1000x500 path (see tools note at bottom). ~12 KB. */
+const COAST_PATH = 'M45 468l7 0l6 3l-6 0l-7 -3M483 100l0 2l-2 3l-5 1l-4 0l3 -3l-2 -3l6 -3l5 1l-1 2M892 257l10 4l4 4l4 2l1 1l-3 1l1 2l10 8l-8 -1l-5 -6l-4 -1l-4 2l0 2l-2 1l-4 -1l-6 -3l-4 1l3 -3l-2 -5l-12 -5l-2 1l-2 -3l4 -2l-4 0l-4 -3l5 -2l4 1l1 6l3 1l6 -4l10 2M817 237l7 -6l7 4l-5 6l2 3l-1 1l4 2l-4 1l-1 4l-2 2l-1 7l-1 -1l-3 1l-4 -2l-4 1l-1 -2l-4 0l0 -4l-3 -3l0 -5l2 -2l4 1l0 -2l5 -2l3 -4M240 42l-2 1l-7 -1l6 -2l3 2M239 35l-7 -1l7 1M231 31l4 1l-5 2l-4 -3l5 0M255 43l-12 -1l-1 -3l-3 -1l-9 -1l1 -1l15 1l2 1l-1 1l5 1l23 0l3 1l0 1l-1 1l-22 0M191 33l4 0l-1 1l-9 0l6 -1M192 31l3 1l-8 0l5 -1M316 199l2 0l-1 1l-4 0l1 -1l2 0M285 199l3 1l-4 0l-2 -1l3 0M271 186l11 1l12 7l-10 1l2 -2l-3 -1l-2 -2l-8 -2l-1 0l1 -1l-9 2l7 -3M346 107l-4 5l2 -1l2 0l-1 1l6 1l0 2l2 0l1 3l-1 2l-3 0l-1 -3l-3 3l-2 0l2 -2l-2 0l-9 0l2 -2l-2 -1l6 -6l4 -2l1 0M267 69l10 4l-2 1l-6 -2l-7 3l-1 -2l-3 0l2 -1l1 -5l6 2M281 49l3 -1l10 3l0 1l5 -1l10 3l5 4l-5 1l11 3l4 2l4 0l-6 5l-7 -3l-4 0l0 2l8 3l1 3l-1 2l-10 -3l7 5l-13 -3l-4 -1l1 -1l-8 -3l-8 2l-2 -1l2 -2l11 -1l-1 -1l1 -1l3 -3l-2 -2l-10 -2l2 -1l-7 -3l-7 1l-20 -2l-3 -1l3 -1l-4 0l-1 -3l5 -3l8 -1l-2 2l2 2l2 -3l7 -1l5 3l0 2l5 -1M237 44l12 1l-11 5l-3 0l-2 -4l4 -2M221 48l-3 -2l3 -1l9 0l0 1l-2 1l4 1l-1 3l-4 1l-12 -3l0 -1l6 0M201 39l5 0l0 1l-1 2l-17 1l-4 -1l5 -1l-16 0l6 -3l18 2l-4 -2l3 -1l2 0l3 2M159 39l10 -4l8 -1l0 2l-2 1l-16 2M162 43l11 1l6 2l-10 3l-4 3l-7 1l-8 -3l6 -5l-3 -1l9 -1M38 82l2 2l-5 -1l3 -1M74 89l3 1l-5 2l-1 0l-1 -2l4 -1M131 100l3 0l-1 3l3 2l-6 -3l0 -2l1 0M152 111l4 3l1 1l-1 1l-13 -6l9 1M23 73l8 1l-2 1l-6 -1l0 -1M207 30l13 1l3 3l-15 -2l3 -1l-4 -1M592 152l4 -1l-4 3l-2 -2l2 0M573 152l-4 1l-4 -1l1 -1l7 1M638 285l2 9l-2 0l0 3l-7 22l-5 2l-4 -2l-2 -6l1 -4l3 -5l-2 -6l1 -3l6 -1l4 -3l0 -3l1 0l3 -5l1 2M964 294l2 2l-2 -2M963 294l0 -3l2 3l-2 0M873 269l1 -4l0 2l-1 2M365 467l5 -1l8 2l2 4l-20 3l-10 -1l0 -1l8 -2l7 -4M316 473l12 0l4 -2l3 1l-2 3l-12 0l-5 -2M295 448l5 0l1 -5l4 -2l5 7l-1 2l-10 1l1 -1l-8 0l0 -1l3 -1M216 450l15 0l2 1l-13 0l-4 -1M159 455l11 -1l-4 2l-7 -1M146 454l9 1l-9 -1M960 309l4 3l-2 -1l-6 -5l4 3M924 260l1 2l0 1l-2 -2l-4 -3l0 -1l5 3M920 266l-4 2l-4 -2l4 -1l1 -1l0 1l2 0l2 -2l0 -1l2 0l0 2l-3 2M950 279l1 1l-2 0l-1 -2l2 1M949 277l-3 -4l3 4M947 277l-3 0l0 -1l3 1M943 272l1 2l-5 -3l4 1M936 270l-1 -2l1 2M930 265l3 4l-2 -1l-1 -3M991 361l-2 4l-2 1l-2 -1l2 -3l-4 -2l2 -2l0 -4l-5 -8l4 2l5 6l4 1l3 0l-2 4l-2 0l-1 2M971 371l9 -9l1 3l2 -1l1 1l-4 5l1 2l-5 1l-2 5l-4 2l-7 -3l5 -4l3 -2M910 363l2 1l-1 6l-1 -1l-2 2l-2 0l-4 -8l5 1l3 -1M850 339l-5 3l-2 2l-10 0l-5 3l-4 0l-4 -2l2 -6l-7 -16l1 1l-1 -3l2 2l-2 -5l1 -6l1 -2l0 3l7 -5l12 -3l4 -4l2 -5l1 2l1 -1l-1 -1l1 -1l1 0l0 -2l4 -3l4 -2l4 3l3 1l-1 -2l4 -5l5 -1l0 -2l-2 -1l2 0l8 3l3 -1l1 1l-2 3l-2 5l13 7l3 -3l2 -12l2 -4l4 10l2 -1l2 3l3 11l6 4l3 5l3 0l0 3l6 5l2 8l-2 10l-7 11l-1 5l-5 1l-6 3l-4 -1l1 -2l-4 3l-8 -2l-3 -6l-4 -1l0 -3l-4 2l3 -5l0 -2l-5 6l-2 -1l-3 -5l-8 -4l-15 2M727 229l0 3l-4 1l-2 -6l2 -4l4 6M859 258l3 1l1 2l-8 -2l1 -1l3 0M852 261l-2 -2l3 0l-1 2M855 244l2 3l0 2l-1 0l0 3l-2 -5l1 -3M841 248l4 -1l2 -2l-1 4l-12 0l-1 2l3 3l7 -2l-1 1l-4 2l4 10l-1 1l-1 -1l1 -3l-4 1l-1 -6l-2 1l1 7l-2 1l-1 -1l0 -5l-2 -2l3 -8l3 -4l5 2M834 278l-4 -1l3 -1l2 2l-1 0M837 274l4 -2l0 2l-4 1l-4 -1l0 -1l4 1M829 273l2 1l-7 1l4 -3l1 1M801 268l1 1l5 0l1 -1l5 1l1 2l7 2l-3 1l-22 -4l-3 -1l2 -3l6 2M790 253l1 4l4 2l-1 7l-3 0l-9 -8l-8 -13l-9 -10l6 0l9 9l2 0l3 2l3 4l-1 2l3 1M836 215l-2 -2l4 1l-1 2l-1 -1M841 222l1 -2l1 0l0 1l2 -2l-1 2l-2 4l-1 -3M851 227l0 3l0 3l-1 -3l-2 1l0 3l-3 -1l0 -3l-2 -2l-4 3l0 -1l1 -2l3 -2l1 1l5 -2l-1 -2l3 1l0 3M804 199l-2 0l0 -3l6 -2l0 1l-2 3l-2 1M838 182l-3 7l-1 -4l3 -5l2 1l-1 1M894 141l-2 3l-1 6l-1 2l-9 2l-4 3l-2 -1l0 -2l-11 2l3 2l-2 5l-2 1l-1 -1l0 -3l-3 -2l9 -6l9 -1l3 -5l2 2l5 -4l3 -8l3 -1l1 6M902 128l2 -1l0 3l-4 1l-2 2l-5 -2l-1 3l-3 1l-1 -3l2 -2l3 -1l1 -6l8 5M524 136l2 0l1 1l0 4l-3 1l-1 -6l1 0M524 132l2 -1l0 4l-2 -1l0 -2M534 94l1 2l-1 2l-3 -2l-1 -1l4 -1M488 87l4 0l-3 3l6 0l-4 5l3 0l7 8l4 1l-2 2l1 2l-2 1l-18 2l7 -4l-6 -1l3 -1l-1 -2l0 -2l4 1l1 -2l-5 -2l-1 -3l-2 1l-1 -4l3 -5l2 0M460 65l-1 2l3 2l-3 2l-11 3l-11 -2l3 -1l-7 -1l5 -2l-6 0l2 -2l5 0l4 1l4 -1l4 1l9 -2M897 101l1 5l4 8l-4 -1l-2 4l3 3l0 2l-2 -2l-2 2l0 -14l-2 -2l1 -4l2 -1l-1 -2l1 0l1 2M829 224l-4 3l7 -9l0 3l-3 3M840 199l0 4l-2 3l0 4l6 2l1 3l-4 -3l0 1l-2 -1l-4 0l1 -2l-1 0l-2 -3l2 -8l5 0M839 218l0 -1l3 1l-3 3l0 -3M849 216l0 3l-2 0l1 2l-1 1l-2 -4l2 0l0 -1l-2 -2l4 1M285 226l5 -2l2 -5l4 0l5 -4l1 1l-2 2l1 7l2 -2l-1 -3l3 -2l1 -2l5 5l5 -1l4 2l1 -2l7 0l-2 1l1 1l4 2l0 2l5 2l2 3l3 2l9 1l8 5l2 6l1 0l-2 4l1 1l5 1l0 2l2 -1l8 2l1 3l3 0l10 1l8 5l4 1l3 6l-2 5l-9 11l-2 14l-5 11l-3 3l-7 1l-8 4l-3 3l-1 8l-13 16l-4 1l-3 0l-6 -3l0 2l3 2l0 2l1 1l-2 5l-5 2l-8 0l0 5l-8 1l1 3l3 0l1 1l-5 3l-1 4l-5 2l-1 2l6 2l-1 3l-9 7l3 4l-8 2l0 3l-1 0l-10 -5M284 230l2 9l-4 4l-1 3l-3 2l-3 5l0 3l2 1l1 -1l0 1l-4 6l1 3l-1 1l4 3l11 21l12 7l4 3l0 4l-2 22l-2 3l1 10l-5 13l-1 0l1 6l-3 11l1 0l1 -3l2 1l-1 5l-4 0l0 4l-3 3l4 0l-4 5l2 10M293 397l9 3l3 -3l4 -1l3 4l7 2l-1 1l-4 -1l-3 2l-3 0l-9 -3l-6 -4M625 26l18 0l-11 2l-3 -1l2 -1l-6 0M649 45l6 -2l0 -2l15 -3l19 -2l2 1l-29 7l-8 5l1 2l5 3l-11 -1l-1 -1l-5 -1l0 -1l3 -1l0 -1l5 -3l-2 0M576 28l-12 1l-16 -2l16 -1l12 2M569 34l-11 0l1 0l-1 -1l6 -1l5 2M542 29l5 -1l13 3l-7 1l-5 5l-4 0l-6 -2l3 -1l-10 -3l-2 -2l8 -1l5 1M284 230l-1 -3l-3 -2l-3 2l1 2l-1 1l-9 -3l-3 -5l-1 1l-2 -1l0 -3l-6 -5l1 -1l-10 -2l-10 -6l-5 2l-20 -8l-5 -4l1 -5l-3 -3l-9 -8l0 -2l-8 -7l-2 -7l-2 -1l-3 0l0 4l9 10l3 7l3 2l-2 2l-6 -6l0 -3l-8 -5l3 -2l-4 -3l-5 -10l-3 -3l-6 -1l-11 -16l0 -7l2 -7l-2 -8l4 1l1 2l0 -5l-13 -5l-1 -4l-4 -2l0 -2l-8 -5l0 -3l-5 -4l-8 -1l-9 -3l-20 -4l-3 0l1 2l-10 3l0 -5l3 -1l-10 5l2 1l-2 2l-12 6l-18 5l20 -9l2 -4l-6 2l-3 -2l-5 1l0 -3l-5 0l-4 -2l0 -2l-2 -1l4 -4l4 0l6 -2l-2 -2l2 -1l-11 1l-9 -3l10 -3l2 0l0 1l6 0l-14 -6l1 -1l9 -2l3 -2l15 -3l6 2l30 1l20 4l18 -4l2 1l3 -2l7 3l3 -2l1 2l8 -1l17 3l4 1l-4 1l15 0l3 2l3 -2l-3 -1l2 -1l5 0l5 2l8 1l9 0l-1 -2l3 0l4 0l0 3l2 -2l2 0l1 -3l-6 -3l0 -3l4 -2l6 2l4 3l-3 1l5 1l0 3l4 -2l4 1l-1 2l2 2l5 -4l0 -3l12 2l0 1l-2 2l2 1l0 2l-6 2l-6 -1l-5 5l-9 3l0 2l-3 0l-7 6l-1 5l4 1l3 4l4 0l16 5l7 1l1 5l6 6l2 -1l2 -3l-2 -4l-2 -2l5 -1l4 -4l-2 -4l-3 -2l3 -3l-2 -7l12 0l7 3l5 0l1 6l4 2l4 -1l5 -5l8 10l-1 2l13 4l1 3l3 1l0 3l-12 5l-17 0l-14 10l7 -4l10 -3l3 2l-3 1l2 6l4 1l4 0l3 -4l0 2l2 1l-16 7l-2 0l0 -3l5 -2l-7 1l0 1l-10 4l-1 2l3 2l-11 2l5 0l-5 1l-3 5l-2 -2l2 3l-3 4l1 -2l-2 -4l0 3l-2 0l2 1l2 6l-16 12l0 4l4 8l-1 5l-2 0l-2 -2l-3 -5l0 -4l-4 -3l-2 2l-4 -2l-8 0l-1 0l1 3l-2 0l-11 -2l-9 6l-2 15l6 10l4 2l8 -2l2 -2l1 -4l9 -2l1 2l-3 7l-1 0l0 5l-2 2l11 0l4 2l1 2l-2 8l4 5M271 223l3 3l6 -3l5 3M301 195l5 0l4 3l-1 1l-5 0l-2 2l-3 -2l-4 1l-2 -2l6 0l-3 -3l1 0l4 0M541 144l2 0l-1 4l-7 -2l0 -2l6 0M604 126l7 3M868 157l4 -2l2 1l-1 2l-3 0l-1 1l-1 -2M455 197l-2 -8l7 -12l5 -5l3 0l5 -5l0 -4l1 -3l7 -5l3 -4l10 1l10 -4l22 -2l2 1l0 1l3 0l-2 1l1 2l-2 4l1 1l13 4l2 3l9 3l3 -2l0 -4l4 -1l20 5l6 -2l3 2l5 0l2 -2l4 -8l-1 -5l1 -1l-4 0l-1 1l-5 1l-2 -2l-6 2l-5 -2l-4 -4l1 -2l-1 -2l3 -2l4 0l1 -2l6 0l6 -3l5 0l9 3l8 -1l0 -3l-13 -8l4 -2l-1 -2l4 -1l-12 2l0 2l4 1l0 1l-7 2l-1 -1l0 -1l-3 -1l3 -1l-1 -1l-7 -1l-3 4l-2 0l-3 7l3 4l-3 0l-4 2l-1 -1l-3 -1l-3 1l2 2l-2 0l-3 -1l4 7l-3 0l1 1l-2 0l1 3l-2 0l-2 -1l-1 -4l-5 -6l0 -4l-10 -5l-3 -4l-1 -1l-1 2l0 -3l-2 0l-3 1l1 4l7 5l2 0l0 2l7 3l0 1l-4 -1l-1 1l2 1l-1 2l-2 2l-1 1l1 -3l-2 -3l-9 -5l-5 -3l-1 -3l-3 -1l-7 3l-9 0l-1 4l-6 2l-3 5l1 1l-6 6l-6 0l-3 2l-3 -3l-7 1l0 -4l-1 -2l2 -5l-2 -7l4 -2l17 1l1 -1l1 -6l-5 -4l-4 -1l-1 -2l9 0l-1 -3l2 1l7 -2l1 -3l6 -1l2 -4l10 -2l1 -1l-1 -4l1 -5l5 -1l-1 2l2 1l-3 3l1 2l2 2l5 -1l4 2l10 -3l6 1l4 -2l0 -5l1 -1l3 -1l2 2l2 0l1 -4l-3 -1l0 -1l13 -1l3 -2l-3 -1l-14 2l-5 -3l1 -2l-2 -3l2 -2l11 -5l-5 -2l-4 0l-3 2l0 2l-9 5l-2 4l4 3l-2 3l-3 1l-3 7l-3 0l-2 2l-3 0l-7 -11l-6 3l-3 1l-4 -2l-2 -9l15 -7l12 -9l12 -6l11 -1l4 -2l10 -1l9 2l-4 1l3 2l3 -1l23 5l2 2l0 1l-3 2l-4 1l-15 -2l5 2l0 4l6 2l0 -2l-2 -1l2 -1l7 2l2 -1l-2 -2l7 -3l5 1l2 -1l-3 -2l2 -2l-2 -1l7 0l2 2l-3 0l0 2l2 1l20 -6l2 0l-2 2l14 -2l4 1l3 -2l-3 -1l1 -1l8 1l14 4l2 -2l-3 -2l-3 0l1 -1l-2 -3l9 -6l8 1l0 1l-2 3l2 2l0 4l3 2l-7 6l3 0l7 -4l-1 -2l1 -2l-3 0l-1 -1l3 -3l-4 -2l5 -2l-1 -2l3 1l-1 3l3 0l-1 -2l4 -1l11 2l-2 -3l0 -3l17 0l-2 -2l3 -2l17 -2l21 -1l3 -3l7 -1l5 1l-4 1l6 0l1 2l11 -1l8 2l-1 2l-12 3l10 1l1 1l6 -1l21 2l0 -2l11 1l4 1l1 2l-1 1l8 3l2 -3l5 2l17 -1l-2 -2l3 -1l25 1l10 4l17 0l2 1l0 2l3 1l19 0l5 2l3 -1l-2 -1l1 -2l15 1l12 2M1000 70l-7 1l5 4l0 2l-5 -1l-11 3l-9 5l-4 -2l-7 2l-1 -1l-7 1l-4 4l0 1l3 1l0 4l-3 0l-1 2l1 2l-5 1l0 3l-5 1l0 3l-4 2l-4 -12l1 -4l3 -3l4 0l15 -9l2 -4l-4 0l-1 3l-7 3l-2 -4l-8 1l-7 5l3 2l-11 1l0 -2l-4 -1l-3 2l-18 0l-20 12l5 0l4 3l2 -2l3 0l4 4l0 2l-2 3l-2 7l-5 6l-9 8l-4 2l-4 -1l-6 3l-1 3l-6 4l0 1l3 2l3 5l-1 5l-8 1l-1 -6l2 0l-2 -3l-4 -1l2 -4l-3 -1l-9 3l3 -4l-1 -2l-7 5l-3 0l-2 1l4 4l3 1l3 -2l4 1l0 1l-4 1l-5 5l3 2l5 7l0 2l-2 1l2 2l-1 5l-2 0l-6 10l-8 5l-14 4l-1 2l-2 1l0 -3l-4 -1l-7 5l0 2l8 11l2 5l-1 5l-11 8l0 -4l-5 -2l-2 -4l-5 -1l0 -2l-2 0l-2 11l1 0l2 5l7 6l4 11l-2 1l-6 -5l-4 -10l-4 -5l-1 1l1 -10l-4 -15l-5 3l-3 -1l0 -6l-2 -4l-3 -2l-3 -6l-3 0l0 2l-4 0l-5 1l-2 4l-4 2l-8 8l-5 2l-1 15l-2 0l-1 2l1 1l-3 1l-2 3l-2 -3l-9 -19l-2 -15l-6 1l-4 -3l1 -1l0 -1l-6 -4l-3 -4l-13 1l-12 -1l-2 -4l-5 1l-9 -3l-4 -7l-6 1l3 6l3 3l2 5l1 -3l1 0l0 4l1 1l6 0l7 -6l1 6l5 2l3 3l-4 5l-1 1l-1 3l-6 4l0 1l-8 2l-1 3l-10 4l-14 4l-3 -7l0 -5l-9 -12l-2 -7l-3 -1l-6 -11l-2 0l1 -4l-3 5l-4 -6l9 17l0 2l3 3l2 9l3 2l2 6l11 10l-1 1l5 4l18 -4l0 3l-5 11l-4 7l-21 19l-3 6l-1 3l2 3l-1 5l3 6l1 11l-2 4l-14 10l2 6l-1 6l-8 4l1 2l-1 6l-7 8l-5 4l-6 3l-9 0l-9 3l-3 -2l-1 -4l1 -3l-9 -13l-2 -14l-7 -11l0 -6l2 -6l3 -5l0 -3l-5 -16l-9 -11l3 -12l-1 -1l-2 -3l-8 1l-4 -5l-7 0l-10 4l-8 -1l-8 2l-4 -1l-10 -7l-6 -10l-5 -4l0 -4l-3 -3l3 -4l1 -8M7 61l-7 -3M0 295l0 1M850 273l3 0l1 0l-1 1l-10 4l1 -2l6 -3M0 485l3 -1l13 1l12 -2l33 4l8 -1l18 2l15 -2l1 -1l-30 -3l3 -3l-1 -1l-11 -3l18 1l11 -3l-8 -3l-16 0l-8 -3l-1 -3l20 1l14 -3l0 -3l3 0l2 1l25 -4l43 1l16 -2l5 3l3 -1l10 2l19 0l2 -1l-7 -2l-3 -4l20 2l18 0l2 -2l11 2l11 1l3 -2l11 2l21 -2l5 -3l-4 -6l2 -4l0 -3l1 -1l12 -6l14 -4l2 0l-1 1l-12 3l-2 2l1 2l-4 1l-5 4l6 3l4 4l3 9l-10 4l-17 4l-19 0l10 3l-11 2l-1 2l8 3l43 6l4 2l24 -4l19 1l6 -2l34 -3l-3 -3l-17 1l0 -3l1 -1l18 -4l31 -4l5 -2l1 -1l-3 -1l3 -2l9 -2l5 -3l8 1l2 -2l7 2l10 -1l1 1l23 -5l4 0l4 3l7 -3l5 2l11 -2l7 1l3 1l12 0l14 -3l5 -3l13 4l10 -3l34 -8l6 0l6 4l8 2l7 -2l13 2l3 3l-1 2l-5 1l1 1l3 0l-3 4l5 1l3 -1l8 -6l11 -1l4 -3l10 -3l11 0l3 -3l5 3l17 0l11 0l9 -5l9 4l11 -1l10 -2l5 2l12 2l9 -2l16 0l16 -1l1 -3l4 4l3 1l22 0l3 3l6 1l11 1l5 -1l20 6l16 1l11 2l-6 6l-9 2l-7 5l0 2l4 3l6 2l-15 1l-5 5l27 8l29 2M0 58l14 5l0 2l2 1l-1 -2l8 0l5 3l-7 1l-1 4l-9 -2l0 -2l-6 0l-2 -1l1 -1l-4 1l2 1l-2 2M0 51l7 1l-7 1M1000 53l-4 0l4 -2M1000 296l-4 1l0 -1l4 -1M330 394l7 -2l3 1l-5 2l-1 -1l-3 1l-1 -1M691 385l5 2l-1 1l-4 0l0 -3M995 299l1 0l0 1l-3 0l1 -2l1 1M329 220l2 0l0 2l-3 0l1 -2M68 194l2 2l-2 1l-2 -2l1 -1l1 0M67 192l-2 0l2 0M65 191l-2 0l2 0M61 190l1 1l-1 -1M57 188l-1 1l1 -1M283 180l2 4l-3 -2l1 -2M281 176l3 0l-3 1l0 -1M284 175l2 1l0 2l-2 -3M322 119l1 2l5 0l-3 1l-3 -1l0 -2M630 126l6 -5l6 -2l5 1l0 4l-4 0l-1 2l-2 0l3 4l3 1l1 5l0 -2l2 -1l3 3l-5 0l-1 3l2 0l0 2l2 1l0 5l-9 1l-4 -2l-1 -4l2 -4l2 0l-8 -7l0 -2l-2 -3M321 111l7 3l-7 -3M277 78l3 -1l-1 2l-2 -1M267 77l6 -2l-4 2l-2 0M291 63l-5 1l-1 -2l4 -2l2 1l0 2M232 56l2 2l-1 1l-10 -2l4 -2l5 1M204 47l3 1l3 5l9 2l0 2l-4 0l1 1l-1 1l-9 -1l-21 2l-1 -2l-7 0l-3 -2l14 -1l-16 -1l-1 -1l6 -1l-9 -1l5 -3l7 -2l3 1l-2 1l7 -1l4 2l3 -2l4 4l2 -1l-2 -3l5 0M278 48l-3 -2l2 -1l6 0l5 3l-10 0M889 46l6 -1l4 2l-10 -1M912 41l7 0l-8 1l-5 -1l6 0M886 39l17 1l-2 2l-15 1l-6 -2l2 -2l4 0M226 37l3 1l-2 4l-12 -2l0 -2l11 -1M786 30l7 1l-1 1l-16 2l5 -4l5 0M760 25l7 -1l11 4l0 3l-14 -1l-11 -3l7 -2M233 26l5 -1l-1 -1l6 0l13 3l6 3l-9 3l-11 -1l-3 -1l2 -2l-5 1l-5 -3l2 -1M246 23l16 -3l7 1l2 -1l9 -1l48 1l-16 4l6 0l-16 4l-16 2l4 0l-2 1l3 1l-13 4l6 1l-8 1l-25 0l0 -2l5 0l-1 -2l9 1l-8 -3l8 -2l-5 -3l14 -1l-16 0l-11 -3M370 20l23 -2l32 0l17 2l-29 2l23 0l3 1l-3 2l20 -3l9 1l1 1l-22 3l7 0l-6 4l0 3l4 2l-9 1l5 2l1 2l-3 0l3 3l-6 0l3 1l-1 1l-7 0l3 2l0 1l-7 0l8 2l1 3l-5 0l-6 -2l1 1l-3 2l11 0l-15 5l-11 1l-7 4l-16 3l-2 2l-1 4l-5 2l1 2l-2 5l-4 0l-5 -2l-5 0l-9 -8l-2 -4l-4 -3l1 -2l-2 -1l3 -3l4 -1l2 -3l-7 2l-4 -1l1 -4l8 1l-7 -3l-5 0l3 -3l-7 -6l-4 -1l0 -1l-7 -1l-20 0l-8 -3l13 -1l-19 -2l1 -1l20 -3l2 -1l-8 -1l16 -3l-1 -1l15 -1l12 1l7 -2l16 2l-6 -1l0 -2M204 46l6 0l-3 2l-3 -2';
+
+/* Embedded fixtures (real API snapshots, trimmed) — used by ?mock and as
+   code-against-fixtures reference. Never used in live mode. */
+const FIX = {"iss":{"name":"iss","id":25544,"latitude":-11.028139642863,"longitude":-52.798592942324,"altitude":420.07112071183,"velocity":27580.076829807,"visibility":"daylight","footprint":4507.8252731029,"timestamp":1783883192,"daynum":2461234.2962037,"solar_lat":21.88164316908,"solar_lon":254.79464905335,"units":"kilometers"},"launches":[{"name":"Falcon 9 Block 5 | Starlink Group 15-14","status":"Go","net":"2026-07-14T01:16:00Z","lsp":"SpaceX","pad":"Space Launch Complex 4E","location":"Vandenberg SFB, CA, USA","mission_type":"Communications"},{"name":"Falcon 9 Block 5 | Starlink Group 10-45","status":"Go","net":"2026-07-14T07:15:00Z","lsp":"SpaceX","pad":"Space Launch Complex 40","location":"Cape Canaveral SFS, FL, USA","mission_type":"Communications"},{"name":"Soyuz 2.1a | Soyuz MS-29","status":"Go","net":"2026-07-14T14:47:50Z","lsp":"Russian Federal Space Agency (ROSCOSMOS)","pad":"31/6","location":"Baikonur Cosmodrome, Republic of Kazakhstan","mission_type":"Human Exploration"},{"name":"Falcon 9 Block 5 | SDA Tranche 1 Transport Layer E","status":"TBC","net":"2026-07-16T20:22:00Z","lsp":"SpaceX","pad":"Space Launch Complex 4E","location":"Vandenberg SFB, CA, USA","mission_type":"Government/Top Secret"},{"name":"Starship | Flight 13","status":"Go","net":"2026-07-16T22:45:00Z","lsp":"SpaceX","pad":"Orbital Launch Pad 2","location":"SpaceX Starbase, TX, USA","mission_type":"Test Flight"}],"astros":[{"name":"Jessica Meir","agency":"NASA","nationality":"American"},{"name":"Starman","agency":"SpX","nationality":"Earthling"},{"name":"Sergey Kud-Sverchkov","agency":"RFSA","nationality":"Russian"},{"name":"Jack Hathaway","agency":"NASA","nationality":"American"},{"name":"Christopher Williams","agency":"NASA","nationality":"American"},{"name":"Andrei Fedyaev","agency":"RFSA","nationality":"Russian"},{"name":"Sophie Adenot","agency":"ESA","nationality":"French"},{"name":"Zhu Yangzhu","agency":"CNSA","nationality":"Chinese"},{"name":"Sergey Mikayev","agency":"RFSA","nationality":"Russian"},{"name":"Zhang Zhiyuan","agency":"CNSA","nationality":"Chinese"},{"name":"Lai Ka-ying","agency":"CNSA","nationality":"Chinese"}],"apod":{"date":"2026-07-12","title":"Galaxy NGC 474: Shells and Star Streams","explanation":"What's happening to galaxy NGC 474?  The multiple layers of emission appear strangely complex given the relatively featureless appearance of the elliptical galaxy in less deep images.  The cause of the shells is a topic of research, but they are possibly tidal tails related to debris left over from absorbing numerous small galaxies in the past billion years.  Alternatively, the shells may be like ripples in a pond, where the ongoing collision with the spiral galaxy just to the right of NGC 474 is causing density waves to ripple through the galactic giant.  Regardless of the actual cause, the featured image dramatically highlights the increasing evidence that the halos of some elliptical galaxies are surprisingly complicated.  Similarly, the halo of our own Milky Way Galaxy is one example of such unexpected intricacies.  NGC 474 spans about 250,000 light years and lies about 100 million light years distant toward the constellation of the Fish (Pisces).","url":"https://apod.nasa.gov/apod/image/2607/NGC474_CfhtCoelum_960.jpg","media_type":"image"}};
+
+/* ---------- tiny helpers ---------- */
+const $ = id => document.getElementById(id);
+const pad2 = n => String(n).padStart(2, '0');
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* equirectangular projection — the whole mapping story in two lines */
+function latLonToXY(lat, lon, W = MAP_W, H = MAP_H) {
+  return { x: (lon + 180) / 360 * W, y: (90 - lat) / 180 * H };
+}
+
+/* countdown seconds → "1d 00:00:00" | "T-0 reached" */
+function fmtT(sec) {
+  if (sec <= 0) return 'T-0 reached';
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60), s = Math.floor(sec % 60);
+  return (d ? d + 'd ' : '') + pad2(h) + ':' + pad2(m) + ':' + pad2(s);
+}
+
+/* split a [{lat,lon},...] track into segments at dateline jumps (>180° lon) */
+function splitTrack(pts) {
+  const segs = [];
+  let cur = [];
+  for (const p of pts) {
+    if (cur.length && Math.abs(p.lon - cur[cur.length - 1].lon) > 180) { segs.push(cur); cur = []; }
+    cur.push(p);
+  }
+  if (cur.length) segs.push(cur);
+  return segs;
+}
+
+function fmtIST(t) {
+  return new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' }).format(new Date(t)) + ' IST';
+}
+
+/* ---------- localStorage wrapper (never throws) ---------- */
+const store = {
+  get(k) { try { const v = localStorage.getItem('srn:' + k); return v ? JSON.parse(v) : null; } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem('srn:' + k, JSON.stringify(v)); } catch (e) { /* quota/blocked: run cacheless */ } }
+};
+
+/* ---------- cachedFetch: the whole data-engineering story ----------
+   fresh cache → return it; else fetch → store+return; fetch fails →
+   stale cache flagged .stale, else throw → panel error state.
+   `now` and `fetcher` are injectable so ?test can mock the clock. */
+async function cachedFetch(key, url, maxAgeMs, opts = {}) {
+  const now = opts.now || Date.now;
+  const fetcher = opts.fetcher || (u => fetch(u).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }));
+  const cached = store.get(key);
+  if (cached && (now() - cached.t) < maxAgeMs) {
+    console.debug('[cache] HIT ' + key + ' age=' + (now() - cached.t) + 'ms');
+    return { t: cached.t, data: cached.data, stale: false, fromCache: true };
+  }
+  try {
+    const data = await fetcher(url);
+    const rec = { t: now(), data };
+    store.set(key, rec);
+    console.debug('[cache] MISS ' + key + ' → fetched fresh');
+    return { t: rec.t, data, stale: false, fromCache: false };
+  } catch (e) {
+    if (cached) {
+      console.debug('[cache] FETCH FAIL ' + key + ' → serving stale (' + e.message + ')');
+      return { t: cached.t, data: cached.data, stale: true, fromCache: true };
+    }
+    throw e;
+  }
+}
+
+/* ---------- panel state machinery ---------- */
+function setChip(p, cls, txt) { const c = $('chip-' + p); c.className = 'chip ' + cls; c.textContent = txt; }
+
+function renderLoading(p) {
+  setChip(p, '', 'LOADING');
+  const rows = { iss: ['aspect-ratio:2/1', 'height:52px'], astro: ['height:64px;width:40%', 'height:90px'], launch: ['height:40px', 'height:40px', 'height:40px'], apod: ['height:160px', 'height:16px;width:60%'] };
+  $('body-' + p).innerHTML = rows[p].map(s => '<div class="skel" style="' + s + ';margin-bottom:10px"></div>').join('');
+}
+
+function renderError(p, apiName, staleRec) {
+  setChip(p, 'err', 'OFFLINE');
+  let html = '<div class="err-box">&#9888; can\'t reach ' + esc(apiName) +
+    ' <span class="retry">— retrying in <span id="retry-' + p + '">30</span>s</span></div>';
+  if (staleRec && staleRec.data) {
+    html += '<div class="stale-box">showing last-good data · <b>as of ' + fmtIST(staleRec.t) + '</b></div>' +
+            '<div id="stale-' + p + '"></div>';
+  }
+  $('body-' + p).innerHTML = html;
+}
+
+/* ---------- ISS panel ---------- */
+const track = { past: store.get('track') || [], future: [] };
+
+function validISS(d) {
+  return d && Number.isFinite(d.latitude) && Number.isFinite(d.longitude) &&
+    d.latitude >= -90 && d.latitude <= 90 && Number.isFinite(d.altitude) && Number.isFinite(d.velocity);
+}
+
+function buildMapSVG(d) {
+  const p = latLonToXY(d.latitude, d.longitude);
+  /* graticule every 30° */
+  let grat = '';
+  for (let lon = -150; lon <= 150; lon += 30) grat += '<line class="grat" x1="' + ((lon + 180) / 360 * MAP_W) + '" y1="0" x2="' + ((lon + 180) / 360 * MAP_W) + '" y2="' + MAP_H + '"/>';
+  for (let lat = -60; lat <= 60; lat += 30) grat += '<line class="grat" x1="0" y1="' + ((90 - lat) / 180 * MAP_H) + '" x2="' + MAP_W + '" y2="' + ((90 - lat) / 180 * MAP_H) + '"/>';
+  const toPoly = (pts, cls) => splitTrack(pts).filter(s => s.length > 1).map(seg =>
+    '<polyline class="' + cls + '" points="' + seg.map(q => { const c = latLonToXY(q.lat, q.lon); return c.x.toFixed(1) + ',' + c.y.toFixed(1); }).join(' ') + '"/>').join('');
+  /* past track fades: three age buckets */
+  const n = track.past.length, third = Math.max(1, Math.ceil(n / 3));
+  let past = '';
+  [[0, .15], [1, .32], [2, .6]].forEach(([i, op]) => {
+    const slice = track.past.slice(i * third, (i + 1) * third + 1);
+    if (slice.length > 1) past += '<g opacity="' + op + '">' + toPoly(slice, 'track') + '</g>';
+  });
+  const fut = toPoly(track.future, 'predict');
+  const fpR = Number.isFinite(d.footprint) ? (d.footprint / 2 / 111.32) * (MAP_H / 180) : 0;
+  const fp = fpR ? '<circle class="footprint" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + fpR.toFixed(1) + '"/>' : '';
+  return '<svg viewBox="0 0 ' + MAP_W + ' ' + MAP_H + '" preserveAspectRatio="none" role="img" aria-label="world map with ISS position">' +
+    grat + '<path class="coast" d="' + COAST_PATH + '"/>' + fp + past + fut +
+    '<circle class="iss-glow" r="7" style="cx:' + p.x.toFixed(1) + 'px;cy:' + p.y.toFixed(1) + 'px" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '"/>' +
+    '<circle class="iss-dot" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="4"/></svg>';
+}
+
+function renderISS(rec) {
+  const d = rec.data;
+  if (!validISS(d)) throw new Error('bad ISS payload');
+  setChip('iss', rec.stale ? 'stale' : 'live', rec.stale ? 'STALE · ' + fmtIST(rec.t) : 'LIVE · 5s');
+  const R = (k, v, u) => '<div class="r"><div class="k">' + k + '</div><div class="v">' + v + (u ? ' <span class="u">' + u + '</span>' : '') + '</div></div>';
+  $('body-iss').innerHTML =
+    '<div class="mapwrap">' + buildMapSVG(d) + '</div>' +
+    '<div class="readouts">' +
+    R('LAT', d.latitude.toFixed(4), '&deg;') + R('LON', d.longitude.toFixed(4), '&deg;') +
+    R('ALT', d.altitude.toFixed(1), 'km') + R('VEL', Math.round(d.velocity).toLocaleString('en-US'), 'km/h') +
+    '</div>' +
+    '<div class="over-line">sunlight: <b>' + esc(d.visibility || '?') + '</b> · ground track: <b style="color:var(--cyan)">past 45 min</b> / <b style="color:var(--violet)">predicted +45 min</b></div>';
+}
+
+/* ---------- humans panel ---------- */
+function craftOf(a) {
+  if (/starman/i.test(a.name)) return 'ELON’S ROADSTER';
+  const ag = (a.agency || '').toUpperCase();
+  if (ag === 'CNSA' || ag === 'CMSA' || /chinese/i.test(a.nationality || '')) return 'TIANGONG';
+  return 'ISS';
+}
+function renderAstros(rec) {
+  const list = (rec.data.results || rec.data).map(a => ({
+    name: a.name, nationality: a.nationality || '',
+    agency: a.agency ? (a.agency.abbrev || a.agency.name || a.agency) : (a.agency === '' ? '' : a.agency)
+  }));
+  const humans = list.filter(a => !/starman/i.test(a.name));
+  const groups = {};
+  for (const a of humans) (groups[craftOf(a)] = groups[craftOf(a)] || []).push(a);
+  setChip('astro', rec.stale ? 'stale' : 'live', rec.stale ? 'STALE · ' + fmtIST(rec.t) : 'CACHED 1h');
+  let html = '<div class="big-count">' + humans.length + '</div><div class="big-label">PEOPLE OFF THE PLANET</div>';
+  for (const g of Object.keys(groups).sort()) {
+    html += '<div class="craft"><h3>&#9642; ' + esc(g) + ' &middot; ' + groups[g].length + '</h3><ul>' +
+      groups[g].map(a => '<li>' + esc(a.name) + ' <span class="ag">' + esc(a.agency || a.nationality) + '</span></li>').join('') + '</ul></div>';
+  }
+  if (list.length !== humans.length) html += '<div class="foot-note">+ Starman (mannequin) in a Tesla Roadster, heliocentric orbit</div>';
+  html += '<div class="foot-note">craft inferred from agency · data: <a href="https://thespacedevs.com/llapi" rel="noopener">Launch Library 2</a></div>';
+  $('body-astro').innerHTML = html;
+}
+
+/* ---------- launches panel ---------- */
+let launchList = [];
+function normLaunches(data) {
+  return (data.results || data).map(r => ({
+    name: r.name, status: r.status && r.status.abbrev ? r.status.abbrev : (r.status || ''),
+    net: r.net, lsp: r.lsp_name || r.lsp || '', pad: r.pad || '', location: r.location || ''
+  }));
+}
+function renderLaunches(rec) {
+  launchList = normLaunches(rec.data);
+  setChip('launch', rec.stale ? 'stale' : 'live', rec.stale ? 'STALE · ' + fmtIST(rec.t) : 'CACHED 1h');
+  $('body-launch').innerHTML = launchList.map((l, i) => {
+    const [rocket, mission] = l.name.includes('|') ? l.name.split('|').map(s => s.trim()) : [l.name, ''];
+    return '<div class="launch">' +
+      '<span class="nm">' + esc(rocket) + (mission ? ' <span style="color:var(--violet)">' + esc(mission) + '</span>' : '') + '</span>' +
+      '<span class="st' + (l.status === 'Go' ? ' go' : '') + '">' + esc(l.status || 'TBD') + '</span>' +
+      '<span class="cd" data-i="' + i + '">&hellip;</span>' +
+      '<span class="meta">' + esc(l.lsp) + ' &middot; ' + esc(l.pad) + ', ' + esc(l.location) + '</span>' +
+      '</div>';
+  }).join('');
+  tickCountdowns();
+}
+function tickCountdowns() {
+  document.querySelectorAll('#body-launch .cd').forEach(el => {
+    const l = launchList[+el.dataset.i];
+    if (!l || !l.net) { el.textContent = 'NET TBD'; return; }
+    const sec = (new Date(l.net).getTime() - Date.now()) / 1000;
+    const s = fmtT(sec);
+    if (s === 'T-0 reached') { el.classList.add('t0'); el.textContent = 'T-0 reached'; }
+    else el.innerHTML = 'T&minus;' + esc(s).replace(/:/g, '<span class="sep">:</span>');
+  });
+}
+
+/* ---------- APOD panel ---------- */
+function renderAPOD(rec) {
+  const d = rec.data;
+  const isVideo = Q.has('apodvideo') || d.media_type === 'video';
+  setChip('apod', rec.stale ? 'stale' : 'live', rec.stale ? 'STALE · ' + fmtIST(rec.t) : 'CACHED 24h');
+  let media;
+  if (isVideo) {
+    media = '<a class="apod-video" href="' + esc(d.url) + '" rel="noopener" target="_blank">&#9654; today\'s APOD is a video &mdash; watch it on the source site</a>';
+  } else {
+    media = '<img class="apod-img" src="' + esc(d.url) + '" alt="' + esc(d.title) + '">';
+  }
+  $('body-apod').innerHTML = media +
+    '<div class="apod-title">' + esc(d.title) + '</div>' +
+    '<div class="apod-date">' + esc(d.date) + '</div>' +
+    '<div class="apod-x" id="apod-x">' + esc(d.explanation) + '</div>';
+  const x = $('apod-x');
+  x.addEventListener('click', () => x.classList.toggle('open'));
+  const img = document.querySelector('#body-apod .apod-img');
+  if (img) img.addEventListener('error', () => { renderError('apod', 'apod.nasa.gov (image)', null); scheduleRetry('apod', loadAPOD); });
+}
+
+/* ---------- clocks ---------- */
+function tickClocks() {
+  const now = new Date();
+  $('clock-utc').textContent = pad2(now.getUTCHours()) + ':' + pad2(now.getUTCMinutes()) + ':' + pad2(now.getUTCSeconds());
+  $('clock-ist').textContent = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(now);
+}
+
+/* ---------- live orchestration ---------- */
+const retryTimers = {};
+function scheduleRetry(p, fn) {
+  let left = 30;
+  clearInterval(retryTimers[p]);
+  retryTimers[p] = setInterval(() => {
+    left--;
+    const el = $('retry-' + p);
+    if (el) el.textContent = left;
+    if (left <= 0) { clearInterval(retryTimers[p]); fn(); }
+  }, 1000);
+}
+
+async function loadISS() {
+  try {
+    const rec = await cachedFetch('iss', API.iss, 4000);
+    if (!validISS(rec.data)) throw new Error('invalid ISS payload shape');
+    if (!rec.fromCache) {
+      const last = track.past[track.past.length - 1];
+      if (!last || (rec.data.timestamp - last.t) >= 30) {
+        track.past.push({ t: rec.data.timestamp, lat: rec.data.latitude, lon: rec.data.longitude });
+        const cutoff = rec.data.timestamp - 45 * 60;
+        track.past = track.past.filter(q => q.t >= cutoff);
+        store.set('track', track.past);
+      }
+    }
+    renderISS(rec);
+  } catch (e) {
+    const stale = store.get('iss');
+    renderError('iss', 'api.wheretheiss.at', stale);
+    scheduleRetry('iss', loadISS);
+  }
+}
+async function loadISSFuture() {
+  try {
+    const nowS = Math.floor(Date.now() / 1000);
+    const stamps = Array.from({ length: 10 }, (_, i) => nowS + (i + 1) * 270); /* 10 pts × 4.5 min = +45 min */
+    const rec = await cachedFetch('issfut', API.issFut(stamps), 9 * 60 * 1000);
+    if (Array.isArray(rec.data)) track.future = rec.data.filter(validISS).map(q => ({ lat: q.latitude, lon: q.longitude }));
+  } catch (e) { track.future = []; /* predicted path is decoration; no error state */ }
+}
+async function loadLaunches() {
+  try {
+    const rec = await cachedFetch('launches', API.launch, 60 * 60 * 1000);
+    renderLaunches(rec);
+    if (rec.stale) return; /* stale render is fine; retry comes from hourly resync */
+  } catch (e) {
+    renderError('launch', 'll.thespacedevs.com', store.get('launches'));
+    scheduleRetry('launch', loadLaunches);
+  }
+}
+async function loadAstros() {
+  try {
+    const rec = await cachedFetch('astros', API.astro, 60 * 60 * 1000);
+    renderAstros(rec);
+  } catch (e) {
+    renderError('astro', 'll.thespacedevs.com', store.get('astros'));
+    scheduleRetry('astro', loadAstros);
+  }
+}
+async function loadAPOD() {
+  try {
+    const rec = await cachedFetch('apod', API.apod, 24 * 60 * 60 * 1000);
+    renderAPOD(rec);
+  } catch (e) {
+    renderError('apod', 'api.nasa.gov', store.get('apod'));
+    scheduleRetry('apod', loadAPOD);
+  }
+}
+
+function bootLive() {
+  ['iss', 'astro', 'launch', 'apod'].forEach(renderLoading);
+  loadISSFuture().then(loadISS);
+  loadLaunches(); loadAstros(); loadAPOD();
+  setInterval(loadISS, 5000);
+  setInterval(loadISSFuture, 10 * 60 * 1000);
+  setInterval(loadLaunches, 60 * 60 * 1000);
+  setInterval(loadAstros, 60 * 60 * 1000);
+  setInterval(loadAPOD, 60 * 60 * 1000);
+}
+
+function bootMock() {
+  const rec = d => ({ t: Date.now(), data: d, stale: false, fromCache: false });
+  track.past = [];
+  const base = { ...FIX.iss };
+  for (let i = 12; i >= 1; i--) track.past.push({ t: base.timestamp - i * 200, lat: base.latitude - i * 2.2, lon: base.longitude - i * 3.1 });
+  track.future = Array.from({ length: 10 }, (_, i) => ({ lat: base.latitude + (i + 1) * 2.0, lon: base.longitude + (i + 1) * 3.4 }));
+  renderISS(rec(FIX.iss));
+  renderAstros(rec({ results: FIX.astros.map(a => ({ name: a.name, nationality: a.nationality, agency: { abbrev: a.agency } })) }));
+  renderLaunches(rec({ results: FIX.launches.map(l => ({ name: l.name, status: { abbrev: l.status }, net: l.net, lsp_name: l.lsp, pad: l.pad, location: l.location })) }));
+  renderAPOD(rec(FIX.apod));
+  setInterval(tickCountdowns, 1000);
+}
+
+/* ---------- ?test harness ---------- */
+async function runTests() {
+  const results = [];
+  const ok = (name, cond) => results.push({ name, pass: !!cond });
+  /* projection */
+  let p = latLonToXY(0, 0);       ok('proj (0,0)→center', Math.abs(p.x - 500) < .01 && Math.abs(p.y - 250) < .01);
+  p = latLonToXY(90, -180);       ok('proj (90,-180)→top-left', Math.abs(p.x) < .01 && Math.abs(p.y) < .01);
+  p = latLonToXY(-90, 180);       ok('proj (-90,180)→bottom-right', Math.abs(p.x - 1000) < .01 && Math.abs(p.y - 500) < .01);
+  p = latLonToXY(12.97, 77.59);   ok('proj Bangalore in India bbox', p.x >= 700 && p.x <= 730 && p.y >= 200 && p.y <= 230);
+  /* countdown */
+  ok('fmtT 86400 → "1d 00:00:00"', fmtT(86400) === '1d 00:00:00');
+  ok('fmtT 3661 → "01:01:01"', fmtT(3661) === '01:01:01');
+  ok('fmtT 0 → T-0 reached', fmtT(0) === 'T-0 reached' && fmtT(-5) === 'T-0 reached');
+  /* track split */
+  const segs = splitTrack([{ lat: 0, lon: 170 }, { lat: 1, lon: 179 }, { lat: 2, lon: -179 }, { lat: 3, lon: -170 }]);
+  ok('splitTrack breaks at dateline', segs.length === 2 && segs[0].length === 2 && segs[1].length === 2);
+  /* cachedFetch with mocked clock + fetcher */
+  try { localStorage.removeItem('srn:tst'); } catch (e) {}
+  let fetchCount = 0;
+  const F = v => () => { fetchCount++; return Promise.resolve(v); };
+  const FAIL = () => { fetchCount++; return Promise.reject(new Error('net down')); };
+  let r = await cachedFetch('tst', 'x', 5000, { now: () => 1000, fetcher: F({ v: 1 }) });
+  ok('cache: first call fetches', r.data.v === 1 && !r.fromCache && fetchCount === 1);
+  r = await cachedFetch('tst', 'x', 5000, { now: () => 3000, fetcher: F({ v: 2 }) });
+  ok('cache: fresh hit skips fetch', r.data.v === 1 && r.fromCache && !r.stale && fetchCount === 1);
+  r = await cachedFetch('tst', 'x', 5000, { now: () => 99999, fetcher: F({ v: 3 }) });
+  ok('cache: expired refetches', r.data.v === 3 && !r.fromCache && fetchCount === 2);
+  r = await cachedFetch('tst', 'x', 5000, { now: () => 999999, fetcher: FAIL });
+  ok('cache: fail → stale flagged', r.data.v === 3 && r.stale === true && fetchCount === 3);
+  try { localStorage.removeItem('srn:tst'); } catch (e) {}
+  let threw = false;
+  try { await cachedFetch('tst', 'x', 5000, { now: () => 1, fetcher: FAIL }); } catch (e) { threw = true; }
+  ok('cache: fail + no cache throws', threw);
+  /* ISS payload validation */
+  ok('validISS rejects NaN', !validISS({ latitude: NaN, longitude: 0, altitude: 400, velocity: 27000 }) && validISS(FIX.iss));
+  /* report */
+  const fails = results.filter(r2 => !r2.pass);
+  const msg = fails.length === 0
+    ? 'TESTS PASS ' + results.length + '/' + results.length
+    : 'TESTS FAIL ' + fails.length + '/' + results.length + ': ' + fails.map(f => f.name).join('; ');
+  document.title = msg;
+  const b = $('test-banner');
+  b.style.display = 'block';
+  b.style.color = fails.length ? 'var(--pink)' : '#4ade80';
+  b.textContent = msg;
+  results.forEach(r2 => console.debug((r2.pass ? 'PASS ' : 'FAIL ') + r2.name));
+}
+
+/* ---------- boot ---------- */
+window.addEventListener('unhandledrejection', e => { e.preventDefault(); console.debug('[guard] swallowed rejection:', e.reason && e.reason.message); });
+tickClocks();
+setInterval(tickClocks, 1000);
+setInterval(tickCountdowns, 1000);
+if (MODE === 'test') { ['iss', 'astro', 'launch', 'apod'].forEach(renderLoading); runTests(); }
+else if (MODE === 'loading') { ['iss', 'astro', 'launch', 'apod'].forEach(renderLoading); }
+else if (MODE === 'error') {
+  renderError('iss', 'api.wheretheiss.at', null);
+  renderError('astro', 'll.thespacedevs.com', null);
+  renderError('launch', 'll.thespacedevs.com', null);
+  renderError('apod', 'api.nasa.gov', null);
+}
+else if (MODE === 'mock') { bootMock(); }
+else { bootLive(); }
+
+/* tools note — map generation (kept for reproducibility):
+   ne_110m_coastline.geojson → project equirect (x=(lon+180)/360*1000,
+   y=(90-lat)/180*500) → Ramer-Douglas-Peucker eps=0.9px → round to int →
+   relative lineto path string. Script: scratch/make_map.py. */
+</script>
+</body>
+</html>

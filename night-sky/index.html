@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Night Sky over Bangalore</title>
+<meta name="description" content="A real-time star chart computed — not fetched — for the sky over Bangalore. 323 stars, 30 constellations, the Moon, all from first-principles astronomy math.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%8C%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#060a13; --text:#e6edf7; --muted:#8b98ad;
+  --cyan:#6ee7ff; --violet:#a78bfa; --pink:#f0abfc; --yellow:#fcd34d;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  font-size:13px;
+}
+canvas#sky{position:fixed;inset:0;display:block;cursor:crosshair}
+a{color:var(--cyan);text-decoration:none}
+.arcade-link{
+  position:fixed;top:12px;left:14px;z-index:20;
+  padding:6px 12px;border:1px solid rgba(110,231,255,.35);border-radius:8px;
+  background:rgba(6,10,19,.72);backdrop-filter:blur(8px);
+  color:var(--cyan);letter-spacing:.04em;
+}
+.arcade-link:hover{border-color:var(--cyan);box-shadow:0 0 14px rgba(110,231,255,.35)}
+.panel{
+  position:fixed;z-index:15;
+  background:rgba(9,14,26,.78);backdrop-filter:blur(10px);
+  border:1px solid rgba(110,231,255,.18);border-radius:12px;
+  padding:12px 14px;
+  box-shadow:0 0 24px rgba(0,0,0,.5);
+}
+#hud{top:12px;right:14px;width:272px}
+#hud h1{
+  font-size:14px;font-weight:600;letter-spacing:.08em;color:var(--cyan);
+  text-shadow:0 0 12px rgba(110,231,255,.5);margin-bottom:2px;
+}
+#hud .sub{color:var(--muted);font-size:11px;margin-bottom:10px}
+.row{display:flex;align-items:center;gap:8px;margin:7px 0;flex-wrap:wrap}
+.lbl{color:var(--muted);font-size:11px;letter-spacing:.05em;min-width:52px}
+#clock{color:var(--yellow);font-size:13px;letter-spacing:.03em}
+#lstout{color:var(--muted);font-size:11px}
+input[type="datetime-local"]{
+  background:rgba(110,231,255,.06);border:1px solid rgba(110,231,255,.25);
+  border-radius:6px;color:var(--text);font-family:inherit;font-size:11px;
+  padding:4px 6px;color-scheme:dark;flex:1;min-width:0;
+}
+button{
+  background:rgba(110,231,255,.08);border:1px solid rgba(110,231,255,.3);
+  border-radius:6px;color:var(--cyan);font-family:inherit;font-size:11px;
+  padding:4px 10px;cursor:pointer;letter-spacing:.04em;
+}
+button:hover{background:rgba(110,231,255,.16);box-shadow:0 0 10px rgba(110,231,255,.25)}
+button.on{background:rgba(167,139,250,.2);border-color:var(--violet);color:var(--violet)}
+#loc{color:var(--pink);font-size:11px}
+#moonrow{color:var(--muted);font-size:11px}
+#moonrow b{color:var(--text);font-weight:600}
+.note{color:var(--muted);font-size:10.5px;line-height:1.5;margin-top:9px;
+  border-top:1px dashed rgba(139,152,173,.25);padding-top:8px}
+.note em{color:var(--yellow);font-style:normal}
+#scrub{
+  bottom:16px;left:50%;transform:translateX(-50%);
+  width:min(520px,calc(100vw - 24px));text-align:center;padding:10px 16px;
+}
+#scrub .lbl2{color:var(--muted);font-size:11px;letter-spacing:.06em}
+#scrub b{color:var(--cyan);font-weight:600}
+input[type="range"]{
+  -webkit-appearance:none;appearance:none;width:100%;height:4px;margin:9px 0 3px;
+  background:linear-gradient(90deg,rgba(167,139,250,.5),rgba(110,231,255,.5));
+  border-radius:2px;outline:none;
+}
+input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;
+  background:var(--cyan);box-shadow:0 0 12px rgba(110,231,255,.8);cursor:pointer;
+}
+input[type="range"]::-moz-range-thumb{
+  width:16px;height:16px;border-radius:50%;border:none;
+  background:var(--cyan);box-shadow:0 0 12px rgba(110,231,255,.8);cursor:pointer;
+}
+#card{
+  left:14px;bottom:16px;min-width:200px;max-width:260px;display:none;
+}
+#card.show{display:block}
+#card h2{font-size:15px;color:var(--yellow);text-shadow:0 0 10px rgba(252,211,77,.4);
+  margin-bottom:4px;font-weight:600}
+#card .kv{color:var(--muted);font-size:11.5px;line-height:1.7}
+#card .kv b{color:var(--text);font-weight:500}
+#card .x{position:absolute;top:6px;right:9px;color:var(--muted);cursor:pointer;font-size:14px}
+#card .x:hover{color:var(--pink)}
+#test-out{
+  position:fixed;left:14px;top:56px;z-index:30;white-space:pre;display:none;
+  background:rgba(9,14,26,.9);border:1px solid rgba(110,231,255,.3);border-radius:10px;
+  padding:12px 14px;font-size:11px;line-height:1.6;max-height:70vh;overflow:auto;
+}
+@media (max-width:640px){
+  #hud{top:auto;bottom:74px;right:8px;left:8px;width:auto;padding:10px 12px}
+  #hud .note{display:none}
+  #scrub{bottom:8px;width:calc(100vw - 16px)}
+  #card{left:8px;bottom:74px;max-width:70vw}
+  .arcade-link{top:8px;left:8px}
+}
+@media (prefers-reduced-motion: reduce){
+  *{transition:none!important;animation:none!important}
+}
+</style>
+</head>
+<body>
+<canvas id="sky"></canvas>
+<a class="arcade-link" href="../arcade/">&larr; arcade</a>
+
+<div class="panel" id="hud">
+  <h1>NIGHT SKY / BLR</h1>
+  <div class="sub">computed, not fetched &middot; offline</div>
+  <div class="row"><span class="lbl">TIME</span><span id="clock">&mdash;</span></div>
+  <div class="row"><span class="lbl">LST</span><span id="lstout">&mdash;</span></div>
+  <div class="row"><span class="lbl">SET</span>
+    <input type="datetime-local" id="dtin" step="60">
+    <button id="livebtn" title="back to real time">LIVE</button>
+  </div>
+  <div class="row"><span class="lbl">WHERE</span><span id="loc">12.97&deg;N 77.59&deg;E &middot; Bengaluru</span></div>
+  <div class="row">
+    <button id="geobtn">use my location</button>
+    <button id="bortlebtn" title="Bangalore Bortle 8: filter to mag &le; 3">what I can see</button>
+  </div>
+  <div class="row" id="moonrow">MOON <b id="moonphase">&mdash;</b></div>
+  <div class="note">Bangalore is <em>Bortle 8</em>-ish: realistically you&rsquo;ll see
+  mag &le; 3 &mdash; hit &ldquo;what I can see&rdquo;. Zenith at center, horizon at the rim;
+  E is LEFT because you&rsquo;re looking <em>up</em>. Planets soon.</div>
+</div>
+
+<div class="panel" id="scrub">
+  <div class="lbl2">TIME SCRUB <b id="scrubval">+0h00</b> &middot; drag &mdash; stars rise in the EAST</div>
+  <input type="range" id="scrubber" min="-720" max="720" step="5" value="0">
+</div>
+
+<div class="panel" id="card">
+  <span class="x" id="cardx">&times;</span>
+  <h2 id="cname"></h2>
+  <div class="kv" id="ckv"></div>
+</div>
+
+<pre id="test-out"></pre>
+
+<script>
+"use strict";
+/* ================= DATA (generated by tools/make_catalog.py) =================
+   Yale Bright Star Catalog subset. RA/Dec are PRECESSED to J2026.5 at build
+   time, so the runtime math below deliberately skips precession, nutation and
+   refraction — at chart scale (±1°) they don't matter. Don't "fix" this. */
+// Yale BSC subset, 323 stars, RA/Dec precessed to J2026.5 (deg).
+// Fields: [HR, name, RA, Dec, Vmag, B-V, dist_ly(0=unknown), const]
+const STARS=[
+[2491, "Sirius", 101.5832, -16.7454, -1.46, 0.0, 9, "CMa"],
+[2326, "Canopus", 96.1349, -52.7114, -0.72, 0.15, 310, "Car"],
+[5340, "Arcturus", 214.2263, 19.0603, -0.04, 1.23, 36, "Boo"],
+[5459, "Rigil Kentaurus", 220.41, -60.948, -0.01, 0.71, 4, "Cen"],
+[7001, "Vega", 279.4571, 38.8076, 0.03, 0.0, 27, "Lyr"],
+[1708, "Capella", 79.6623, 46.0251, 0.08, 0.8, 43, "Aur"],
+[1713, "Rigel", 78.9533, -8.173, 0.12, -0.03, 863, "Ori"],
+[2943, "Procyon", 115.1771, 5.1626, 0.38, 0.42, 11, "CMi"],
+[472, "Achernar", 24.6733, -57.1025, 0.46, -0.16, 139, "Eri"],
+[2061, "Betelgeuse", 89.1516, 7.4096, 0.5, 1.85, 548, "Ori"],
+[5267, "Hadar", 211.4301, -60.4992, 0.61, -0.23, 390, "Cen"],
+[7557, "Altair", 298.0149, 8.9373, 0.77, 0.22, 17, "Aql"],
+[1457, "Aldebaran", 69.3605, 16.5616, 0.85, 1.54, 65, "Tau"],
+[6134, "Antares", 247.7591, -26.4883, 0.96, 1.83, 554, "Sco"],
+[5056, "Spica", 201.6486, -11.2987, 0.98, -0.23, 250, "Vir"],
+[2990, "Pollux", 116.7384, 27.9602, 1.14, 1.0, 34, "Gem"],
+[8728, "Fomalhaut", 344.7747, -29.48, 1.16, 0.09, 25, "PsA"],
+[4853, "Mimosa", 192.3227, -59.8328, 1.25, -0.23, 280, "Cru"],
+[7924, "Deneb", 310.5839, 45.376, 1.25, 0.09, 2615, "Cyg"],
+[4730, "Acrux", 187.0238, -63.2456, 1.33, -0.24, 320, "Cru"],
+[5460, "", 220.4108, -60.9483, 1.33, 0.88, 4, "Cen"],
+[3982, "Regulus", 152.4469, 11.8366, 1.35, -0.11, 79, "Leo"],
+[2618, "Adhara", 104.9167, -29.0099, 1.5, -0.21, 0, "CMa"],
+[4763, "Gacrux", 188.1625, -57.2594, 1.63, 1.59, 89, "Cru"],
+[6527, "Shaula", 263.8525, -37.1203, 1.63, -0.22, 0, "Sco"],
+[1790, "Bellatrix", 81.6387, 6.3716, 1.64, -0.22, 250, "Ori"],
+[1791, "Elnath", 81.9921, 28.6286, 1.65, -0.13, 116, "Tau"],
+[3685, "", 138.3734, -69.8274, 1.68, 0.0, 155, "Car"],
+[1903, "Alnilam", 84.3898, -1.1871, 1.7, -0.19, 2000, "Ori"],
+[4731, "", 187.0264, -63.2459, 1.73, -0.26, 408, "Cru"],
+[8425, "", 332.4712, -46.8305, 1.74, -0.13, 57, "Gru"],
+[4905, "Alioth", 193.7952, 55.8164, 1.77, -0.02, 362, "UMa"],
+[3207, "", 122.5877, -47.4159, 1.78, -0.22, 192, "Vel"],
+[1017, "Mirfak", 51.5572, 49.9533, 1.79, 0.48, 204, "Per"],
+[4301, "Dubhe", 166.3372, 61.6076, 1.79, 1.07, 86, "UMa"],
+[2693, "Wezen", 107.3675, -26.437, 1.84, 0.68, 0, "CMa"],
+[6879, "Kaus Australis", 276.4828, -34.3686, 1.85, -0.03, 142, "Sgr"],
+[3307, "", 125.764, -59.5958, 1.86, 1.28, 0, "Car"],
+[5191, "Alkaid", 207.1468, 49.1819, 1.86, -0.19, 93, "UMa"],
+[6553, "Sargas", 264.8065, -43.0117, 1.87, 0.4, 121, "Sco"],
+[2088, "Menkalinan", 90.3689, 44.9472, 1.9, 0.03, 80, "Aur"],
+[6217, "Atria", 252.8733, -69.0721, 1.92, 1.44, 105, "TrA"],
+[2421, "Alhena", 99.8102, 16.3745, 1.93, 0.0, 99, "Gem"],
+[7790, "", 306.9317, -56.6469, 1.94, -0.2, 0, "Pav"],
+[3485, "", 131.3584, -54.8056, 1.96, 0.04, 64, "Vel"],
+[2294, "Mirzam", 95.967, -17.9708, 1.98, -0.23, 172, "CMa"],
+[2891, "Castor", 114.0734, 31.8287, 1.98, 0.03, 49, "Gem"],
+[3748, "Alphard", 142.2223, -8.775, 1.98, 1.44, 148, "Hya"],
+[617, "Hamal", 32.1669, 23.5876, 2.0, 1.15, 67, "Ari"],
+[5958, "", 240.1534, 25.8466, 10.2, 0.1, 0, ""],
+[424, "Polaris", 46.6516, 89.3736, 2.02, 0.6, 433, "UMi"],
+[7121, "Nunki", 284.2265, -26.2609, 2.02, -0.22, 0, "Sgr"],
+[188, "Diphda", 11.2279, -17.8419, 2.04, 1.02, 53, "Cet"],
+[1948, "Alnitak", 85.5241, -1.9308, 2.05, -0.21, 1260, "Ori"],
+[15, "Alpheratz", 2.4399, 29.238, 2.06, -0.11, 102, "And"],
+[337, "Mirach", 17.8045, 35.7612, 2.06, 1.58, 67, "And"],
+[2004, "Saiph", 87.2536, -9.6623, 2.06, -0.17, 650, "Ori"],
+[5288, "Menkent", 212.0679, -36.4953, 2.06, 1.01, 50, "Cen"],
+[5563, "Kochab", 222.6647, 74.0471, 2.08, 1.47, 84, "UMi"],
+[6556, "Rasalhague", 264.0406, 12.5443, 2.08, 0.15, 49, "Oph"],
+[8636, "", 341.0581, -46.7454, 2.1, 1.6, 408, "Gru"],
+[936, "Algol", 47.4758, 41.0557, 2.12, -0.05, 72, "Per"],
+[4534, "Denebola", 177.6062, 14.4246, 2.14, 0.09, 40, "Leo"],
+[4819, "", 190.7499, -49.1047, 2.17, -0.01, 204, "Cen"],
+[7796, "Sadr", 305.795, 40.3427, 2.2, 0.68, 1087, "Cyg"],
+[3634, "", 137.2435, -43.5406, 2.21, 1.66, 148, "Vel"],
+[168, "Schedar", 10.5067, 56.6824, 2.23, 1.17, 204, "Cas"],
+[1852, "Mintaka", 83.3405, -0.2816, 2.23, -0.22, 1200, "Ori"],
+[5793, "Alphecca", 233.9518, 26.6276, 2.23, -0.02, 72, "CrB"],
+[6705, "Eltanin", 269.3058, 51.4869, 2.23, 1.52, 130, "Dra"],
+[3165, "", 121.1295, -40.0793, 2.25, -0.26, 0, "Pup"],
+[3699, "", 139.45, -59.3872, 2.25, 0.18, 192, "Car"],
+[603, "Almach", 31.3843, 42.4559, 2.26, 1.37, 251, "And"],
+[21, "Caph", 2.6448, 59.2971, 2.27, 0.34, 45, "Cas"],
+[5054, "Mizar", 201.2453, 54.7877, 2.27, 0.02, 69, "UMa"],
+[6241, "Larawag", 252.9765, -34.3371, 2.29, 1.15, 148, "Sco"],
+[5132, "", 205.3961, -53.5999, 2.3, -0.22, 0, "Cen"],
+[5469, "", 220.9268, -47.5002, 2.3, -0.2, 0, "Lup"],
+[5440, "", 219.3006, -42.2723, 2.31, -0.19, 0, "Cen"],
+[5953, "Dschubba", 240.4764, -22.6948, 2.32, -0.12, 0, "Sco"],
+[4295, "Merak", 165.8548, 56.2396, 2.37, -0.02, 62, "UMa"],
+[99, "", 6.8947, -42.1596, 2.39, 1.09, 93, "Phe"],
+[8308, "Enif", 326.3718, 9.9976, 2.39, 1.53, 544, "Peg"],
+[6580, "", 266.0809, -39.0407, 2.41, -0.22, 0, "Sco"],
+[8775, "Scheat", 346.2643, 28.226, 2.42, 1.67, 148, "Peg"],
+[6378, "Sabik", 257.9748, -15.7559, 2.43, 0.06, 63, "Oph"],
+[4554, "Phecda", 178.8018, 53.5472, 2.44, 0.0, 116, "UMa"],
+[8162, "", 319.8002, 62.6981, 2.44, 0.22, 48, "Cep"],
+[2827, "", 111.286, -29.3563, 2.45, -0.08, 0, "CMa"],
+[7949, "Aljanah", 311.8181, 34.0684, 2.46, 1.03, 57, "Cyg"],
+[264, "Tsih", 14.5821, 60.8596, 2.47, -0.15, 204, "Cas"],
+[8781, "Markab", 346.5204, 15.3486, 2.49, -0.04, 86, "Peg"],
+[3734, "", 140.7339, -55.1249, 2.5, -0.18, 251, "Vel"],
+[911, "", 45.9172, 4.1927, 2.53, 1.64, 362, "Cet"],
+[5231, "", 209.3024, -47.4172, 2.55, -0.22, 0, "Cen"],
+[4357, "Zosma", 168.8774, 20.3789, 2.56, 0.12, 68, "Leo"],
+[6175, "", 249.655, -10.619, 2.56, 0.02, 1087, "Oph"],
+[1865, "", 83.475, -17.8051, 2.58, 0.21, 466, "Lep"],
+[4662, "", 184.2946, -17.6891, 2.59, -0.11, 0, "Crv"],
+[4621, "", 182.4363, -50.8699, 2.6, -0.12, 125, "Cen"],
+[7194, "Ascella", 286.0739, -29.84, 2.6, 0.08, 130, "Sgr"],
+[4057, "Algieba", 155.3547, 19.7078, 2.61, 1.15, 148, "Leo"],
+[5685, "Zubeneschamali", 229.6098, -9.479, 2.61, -0.11, 0, "Lib"],
+[2095, "", 90.382, 37.2121, 2.62, -0.08, 148, "Aur"],
+[5984, "Acrab", 241.7455, -19.8758, 2.62, -0.07, 362, "Sco"],
+[553, "", 29.0267, 20.9373, 2.64, 0.13, 44, "Ari"],
+[1956, "", 85.1522, -34.0614, 2.64, -0.12, 0, "Col"],
+[4786, "", 188.946, -23.5425, 2.65, 0.89, 96, "Crv"],
+[5854, "", 236.3929, 6.3436, 2.65, 1.17, 62, "Ser"],
+[403, "Ruchbah", 21.8892, 60.3724, 2.68, 0.13, 88, "Cas"],
+[5235, "", 208.9872, 18.2685, 2.68, 0.58, 30, "Boo"],
+[5571, "", 225.0701, -43.2385, 2.68, -0.22, 0, "Lup"],
+[1577, "", 74.6808, 33.2056, 2.69, 1.53, 155, "Aur"],
+[4216, "", 161.9782, -49.5602, 2.69, 0.9, 148, "Vel"],
+[4798, "", 189.6995, -69.2811, 2.69, -0.2, 0, "Mus"],
+[6508, "", 263.1419, -37.314, 2.69, -0.22, 0, "Sco"],
+[2773, "", 109.52, -37.1465, 2.7, 1.62, 102, "Pup"],
+[5506, "Izar", 221.5365, 26.9635, 2.7, 0.97, 204, "Boo"],
+[6859, "Kaus Media", 275.6725, -29.814, 2.7, 1.38, 69, "Sgr"],
+[7525, "Tarazed", 296.8798, 10.6797, 2.72, 1.52, 204, "Aql"],
+[6056, "", 243.9344, -3.7597, 2.74, 1.58, 96, "Oph"],
+[6132, "", 246.0893, 61.4543, 2.74, 0.91, 64, "Dra"],
+[5028, "", 200.527, -36.8505, 2.75, 0.04, 53, "Cen"],
+[5531, "Zubenelgenubi", 223.0881, -16.1497, 2.75, 0.15, 56, "Lib"],
+[4199, "", 160.9775, -64.5338, 2.76, -0.22, 0, "Car"],
+[1899, "", 84.1827, -5.8946, 2.77, -0.24, 130, "Ori"],
+[6148, "", 247.8409, 21.4337, 2.77, 0.94, 136, "Her"],
+[6603, "", 266.1961, 4.557, 2.77, 1.16, 99, "Oph"],
+[5776, "", 234.2295, -41.2536, 2.78, -0.2, 408, "Lup"],
+[1666, "", 77.2893, -5.0535, 2.79, 0.13, 65, "Eri"],
+[6536, "", 262.7586, 52.2826, 2.79, 0.98, 251, "Dra"],
+[4656, "", 184.1426, -58.8961, 2.8, -0.23, 1087, "Cru"],
+[3185, "", 122.1688, -24.3824, 2.81, 0.43, 93, "Pup"],
+[6212, "", 250.5757, 31.5537, 2.81, 0.65, 32, "Her"],
+[6913, "Kaus Borealis", 277.4016, -25.4032, 2.81, 1.04, 62, "Sgr"],
+[6165, "", 249.3844, -28.2685, 2.82, -0.25, 163, "Sco"],
+[39, "Algenib", 3.6511, 15.3309, 2.83, -0.23, 0, "Peg"],
+[4932, "Vindemiatrix", 195.876, 10.8172, 2.83, 0.94, 76, "Vir"],
+[1829, "", 82.3454, -20.7394, 2.84, 0.82, 163, "Lep"],
+[1203, "", 58.951, 31.9602, 2.85, 0.12, 326, "Per"],
+[5897, "", 239.3784, -63.5064, 2.85, 0.29, 39, "TrA"],
+[6461, "", 261.8772, -55.5515, 2.85, 1.46, 96, "Ara"],
+[591, "", 29.897, -61.4417, 2.86, 0.28, 68, "Hyi"],
+[8502, "", 335.0744, -60.1262, 2.86, 1.39, 125, "Tuc"],
+[1165, "", 57.2663, 24.1852, 2.87, -0.09, 408, "Tau"],
+[7528, "Fawaris", 296.4503, 45.1963, 2.87, -0.03, 109, "Cyg"],
+[8322, "Deneb Algedi", 327.1227, -16.0036, 2.87, 0.29, 37, "Cap"],
+[2286, "", 96.1403, 22.4983, 2.88, 1.64, 163, "Gem"],
+[2890, "", 114.0734, 31.8289, 2.88, 0.04, 49, "Gem"],
+[1220, "", 59.9099, 40.0847, 2.89, -0.18, 362, "Per"],
+[5671, "", 230.3575, -68.7742, 2.89, 0.0, 326, "TrA"],
+[5944, "", 240.1151, -26.1881, 2.89, -0.19, 326, "Sco"],
+[6084, "", 245.701, -25.654, 2.89, 0.13, 0, "Sco"],
+[7264, "", 287.8343, -20.9789, 2.89, 0.35, 125, "Sgr"],
+[2845, "", 112.1469, 8.2343, 2.9, -0.09, 172, "CMi"],
+[4915, "", 194.3182, 38.1753, 2.9, -0.12, 121, "CVn"],
+[8232, "", 323.2377, -5.4532, 2.91, 0.83, 544, "Aqr"],
+[915, "", 46.6835, 53.608, 2.93, 0.7, 204, "Per"],
+[2553, "", 102.6482, -50.6468, 2.93, 1.2, 0, "Pup"],
+[8650, "", 341.0618, 30.3608, 2.94, 0.86, 192, "Peg"],
+[1231, "", 59.8165, -13.4341, 2.95, 1.59, 326, "Eri"],
+[4757, "", 187.8116, -16.6618, 2.95, -0.05, 136, "Crv"],
+[6510, "", 263.4738, -49.8935, 2.95, -0.17, 466, "Ara"],
+[8414, "", 331.7857, -0.1899, 2.96, 0.98, 272, "Aqr"],
+[2473, "", 101.3903, 25.1025, 2.98, 1.4, 192, "Gem"],
+[3873, "", 146.8381, 23.6509, 2.98, 0.8, 326, "Leo"],
+[1605, "", 75.9689, 43.8597, 2.99, 0.54, 466, "Aur"],
+[6746, "Alnasl", 271.8782, -30.4199, 2.99, 1.0, 130, "Sgr"],
+[7235, "", 286.6571, 13.9052, 2.99, 0.01, 72, "Aql"],
+[622, "", 32.7811, 35.1115, 3.0, 0.14, 148, "Tri"],
+[1910, "", 84.8076, 21.1564, 3.0, -0.19, 408, "Tau"],
+[4630, "", 182.8737, -22.7671, 3.0, 1.33, 121, "Crv"],
+[5020, "", 200.0915, -23.3104, 3.0, 0.92, 121, "Hya"],
+[1122, "", 56.2058, 47.8701, 3.01, -0.13, 204, "Per"],
+[3890, "", 146.9409, -65.1955, 3.01, 0.28, 121, "Car"],
+[4335, "", 167.7864, 44.3545, 3.01, 1.14, 0, "UMa"],
+[8353, "", 328.88, -37.239, 3.01, -0.12, 251, "Gru"],
+[2282, "", 95.3328, -30.0767, 3.02, -0.19, 815, "CMa"],
+[2653, "", 106.033, -23.8737, 3.02, -0.08, 0, "CMa"],
+[5435, "Seginus", 218.2873, 38.1923, 3.03, 0.19, 130, "Boo"],
+[6615, "", 267.36, -40.1343, 3.03, 0.51, 172, "Sco"],
+[681, "", 35.1715, -2.8567, 3.04, 1.42, 136, "Cet"],
+[5193, "", 207.8064, -42.6046, 3.04, -0.17, 0, "Cen"],
+[4069, "", 155.975, 41.3649, 3.05, 1.59, 93, "UMa"],
+[4844, "", 191.9852, -68.2525, 3.05, -0.18, 217, "Mus"],
+[5735, "", 230.1773, 71.7394, 3.05, 0.05, 1087, "UMi"],
+[7310, "", 288.1367, 67.7076, 3.07, 1.0, 102, "Dra"],
+[6247, "", 253.4176, -38.0902, 3.08, -0.2, 0, "Sco"],
+[7417, "Albireo", 292.9477, 28.0169, 3.08, 1.13, 192, "Cyg"],
+[7776, "", 305.6241, -14.6958, 3.08, 0.79, 326, "Cap"],
+[3547, "", 134.1988, 5.843, 3.11, 1.0, 93, "Hya"],
+[4232, "", 162.7329, -16.3344, 3.11, 1.25, 116, "Hya"],
+[6832, "", 274.856, -36.7498, 3.11, 1.56, 72, "Sgr"],
+[7869, "", 309.8541, -47.1973, 3.11, 1.0, 71, "Ind"],
+[2040, "", 87.9733, -35.7628, 3.12, 1.16, 142, "Col"],
+[3705, "", 140.6674, 34.2787, 3.13, 1.55, 130, "Lyn"],
+[3803, "", 143.0075, -57.1521, 3.13, 1.55, 148, ""],
+[4467, "", 174.2547, -63.1665, 3.13, -0.04, 0, "Cen"],
+[5576, "", 225.2244, -42.2085, 3.13, -0.2, 0, "Cen"],
+[6285, "", 255.2058, -56.0286, 3.13, 1.6, 74, "Ara"],
+[3569, "", 135.2569, 47.9373, 3.14, 0.19, 43, "UMa"],
+[6410, "", 259.0305, 24.8108, 3.14, 0.08, 74, "Her"],
+[6418, "", 258.9929, 36.7807, 3.16, 1.44, 130, "Her"],
+[1641, "", 77.0943, 41.268, 3.17, -0.18, 148, "Aur"],
+[2451, "", 99.6433, -43.2206, 3.17, -0.11, 0, "Pup"],
+[3775, "", 143.6646, 51.5587, 3.17, 0.46, 63, "UMa"],
+[6396, "", 257.2176, 65.6821, 3.17, -0.12, 142, "Dra"],
+[7039, "", 281.8272, -26.9611, 3.17, -0.11, 0, "Sgr"],
+[1543, "", 72.8168, 7.0054, 3.19, 0.45, 26, "Ori"],
+[1654, "", 76.646, -22.3367, 3.19, 1.46, 297, "Lep"],
+[5463, "", 221.1736, -65.0868, 3.19, 0.24, 58, "Cir"],
+[6299, "", 254.7332, 9.3358, 3.2, 1.15, 105, "Oph"],
+[8115, "", 318.5165, 30.3372, 3.2, 0.99, 121, "Cyg"],
+[6630, "", 267.9154, -37.0493, 3.21, 1.17, 82, ""],
+[8974, "", 355.1169, 77.7795, 3.21, 1.03, 51, "Cep"],
+[5695, "", 230.7804, -40.7412, 3.22, -0.22, 0, "Lup"],
+[7710, "", 303.1675, -0.741, 3.23, -0.07, 272, "Aql"],
+[8238, "", 322.2475, 70.6774, 3.23, -0.22, 233, "Cep"],
+[897, "", 44.8171, -40.1998, 3.24, 0.14, 93, "Eri"],
+[1208, "", 56.7131, -74.158, 3.24, 1.62, 652, "Hyi"],
+[6075, "", 244.931, -4.7554, 3.24, 0.96, 76, "Oph"],
+[7178, "Sulafat", 284.9838, 32.7273, 3.24, -0.05, 155, "Lyr"],
+[2878, "", 112.5184, -43.3576, 3.25, 1.51, 163, "Pup"],
+[6869, "", 275.6745, -2.8847, 3.26, 0.94, 56, "Ser"],
+[165, "", 10.187, 31.0061, 3.27, 1.28, 116, "And"],
+[1465, "", 68.6424, -54.9911, 3.27, -0.1, 181, "Dor"],
+[2550, "", 102.1162, -61.9723, 3.27, 0.21, 63, "Pic"],
+[5287, "", 211.9716, -26.8079, 3.27, 1.12, 67, "Hya"],
+[6453, "", 260.91, -25.0233, 3.27, -0.22, 0, "Oph"],
+[8709, "", 344.0136, -15.6791, 3.27, 0.05, 86, "Aqr"],
+[2216, "", 94.1197, 22.4966, 3.28, 1.6, 233, "Gem"],
+[5603, "", 226.4075, -25.384, 3.29, 1.7, 51, "Lib"],
+[5744, "", 231.381, 58.8739, 3.29, 1.16, 82, "Dra"],
+[322, "", 16.8155, -46.5773, 3.31, 0.89, 155, "Phe"],
+[1702, "", 78.5305, -16.1758, 3.31, -0.11, 142, "Lep"],
+[4660, "Megrez", 184.1803, 56.8853, 3.31, 0.08, 53, "UMa"],
+[4037, "", 153.5919, -70.1701, 3.32, -0.08, 0, "Car"],
+[4140, "", 158.2431, -61.8222, 3.32, -0.09, 0, ""],
+[7234, "", 287.1485, -27.6276, 3.32, 1.19, 74, "Sgr"],
+[6380, "", 258.5138, -43.2691, 3.33, 0.41, 52, "Sco"],
+[3045, "", 117.6025, -24.9278, 3.34, 1.24, 1087, "Pup"],
+[4359, "", 168.9074, 15.2848, 3.34, -0.01, 125, "Leo"],
+[6462, "", 261.9074, -56.399, 3.34, -0.13, 0, "Ara"],
+[6698, "", 270.1216, -9.7738, 3.34, 0.99, 155, "Oph"],
+[1336, "", 63.6925, -62.4084, 3.35, 0.91, 251, "Ret"],
+[8465, "", 332.9444, 58.3324, 3.35, 1.57, 192, "Cep"],
+[1788, "Algiebba", 81.4526, -2.3746, 3.36, -0.17, 466, "Ori"],
+[2484, "", 101.6951, 12.8661, 3.36, 0.43, 59, "Gem"],
+[3323, "", 128.1132, 60.6276, 3.36, 0.84, 362, "UMa"],
+[7377, "", 291.7066, 3.1689, 3.36, 0.32, 45, "Aql"],
+[5107, "", 204.0136, -0.7308, 3.37, 0.11, 74, "Vir"],
+[5708, "", 231.1234, -44.7825, 3.37, -0.18, 362, "Lup"],
+[542, "", 29.0825, 63.7992, 3.38, -0.15, 326, "Cas"],
+[3482, "", 132.046, 6.3204, 3.38, 0.68, 121, "Hya"],
+[4910, "", 194.2383, 3.2544, 3.38, 1.58, 148, "Vir"],
+[921, "", 46.72, 38.9418, 3.39, 1.65, 297, "Per"],
+[1412, "", 67.5437, 15.9276, 3.4, 0.18, 112, "Tau"],
+[4050, "", 154.4934, -61.4652, 3.4, 1.54, 121, ""],
+[8634, "", 340.6955, 10.9705, 3.4, -0.09, 142, "Peg"],
+[429, "", 22.3783, -43.1818, 3.41, 1.57, 0, "Phe"],
+[544, "", 28.65, 29.7086, 3.41, 0.49, 57, "Tri"],
+[5190, "", 207.7767, -41.8185, 3.41, -0.22, 0, "Cen"],
+[5649, "", 228.5525, -52.1973, 3.41, 0.92, 76, "Lup"],
+[5948, "", 240.4716, -38.4701, 3.41, -0.22, 408, "Lup"],
+[6623, "", 266.8767, 27.7122, 3.42, 0.75, 30, "Her"],
+[7913, "", 311.8289, -66.1052, 3.42, 0.16, 93, "Pav"],
+[7957, "", 311.4549, 61.9364, 3.43, 0.92, 46, "Cep"],
+[219, "", 12.6653, 57.9599, 3.44, 0.57, 19, "Cas"],
+[3659, "", 137.9162, -59.0763, 3.44, -0.19, 0, ""],
+[4031, "", 154.5396, 23.2842, 3.44, 0.31, 192, "Leo"],
+[7236, "", 286.9136, -4.84, 3.44, -0.09, 102, "Aql"],
+[334, "", 17.4792, -10.0414, 3.45, 1.16, 80, "Cet"],
+[4033, "", 154.6727, 42.7813, 3.45, 0.03, 109, "UMa"],
+[7106, "Sheliak", 282.7647, 33.3951, 3.45, 0.0, 0, "Lyr"],
+[804, "", 41.1701, 3.3472, 3.47, 0.09, 63, "Cet"],
+[1239, "", 60.538, 12.5632, 3.47, -0.12, 0, "Tau"],
+[2646, "", 105.6937, -27.9743, 3.47, 1.73, 136, "CMa"],
+[3117, "", 119.3632, -53.0544, 3.47, -0.18, 815, "Car"],
+[5681, "", 229.1423, 33.218, 3.47, 0.95, 109, "Boo"],
+[7635, "", 299.9833, 19.5656, 3.47, 1.57, 251, "Sge"],
+[4377, "", 169.9761, 32.949, 3.48, 1.4, 163, "UMa"],
+[6406, "", 258.9645, 14.3617, 3.48, 1.44, 0, "Her"],
+[8684, "", 342.8202, 24.7425, 3.48, 0.93, 82, "Peg"],
+[8675, "", 342.534, -51.1764, 3.49, 0.08, 74, "Gru"],
+[509, "", 26.3381, -15.8051, 3.5, 0.72, 12, "Cet"],
+[5602, "Nekkar", 225.7367, 40.2874, 3.5, 0.97, 88, "Boo"],
+[3975, "", 152.1936, 16.6325, 3.52, -0.03, 1087, "Leo"],
+[1409, "", 67.5411, 19.2371, 3.53, 1.01, 163, "Tau"],
+[2777, "", 110.4262, 21.9312, 3.53, 0.34, 53, "Gem"],
+[6220, "", 250.9513, 38.8738, 3.53, 0.92, 96, "Her"],
+[8450, "", 332.8821, 6.3289, 3.53, 0.08, 67, "Peg"],
+[1879, "Meissa", 84.1498, 9.9497, 3.54, -0.18, 466, "Ori"],
+[7754, "Algedi", 304.8802, -12.4607, 3.57, 0.94, 96, "Cap"],
+[5429, "", 218.2438, 30.2553, 3.58, 1.3, 112, "Boo"],
+[4540, "Zavijava", 178.0134, 1.6173, 3.61, 0.55, 31, "Vir"],
+[6271, "", 254.1147, -42.4023, 3.62, 1.37, 116, "Sco"],
+[1346, "", 65.3254, 15.6895, 3.65, 0.99, 116, "Tau"],
+[4825, "Porrima", 190.7553, -1.5945, 3.65, 0.36, 33, "Vir"],
+[5747, "", 232.2319, 29.0152, 3.68, 0.28, 102, "CrB"],
+[8278, "", 325.3875, -16.5411, 3.68, 0.32, 112, "Cap"],
+[7602, "Alshain", 299.1533, 6.4782, 3.71, 0.86, 47, "Aql"],
+[6688, "", 268.4957, 56.8688, 3.75, 1.18, 93, "Dra"],
+[1373, "", 66.1159, 17.6027, 3.76, 0.98, 155, "Tau"],
+[2650, "", 106.4197, 20.5291, 3.79, 0.79, 0, "Gem"],
+[7420, "", 292.5929, 51.7862, 3.79, 0.14, 652, "Cyg"],
+[6149, "", 248.0632, 1.9284, 3.82, 0.01, 326, "Oph"],
+[5849, "", 235.9652, 26.2127, 3.84, 0.0, 99, "CrB"],
+[3905, "", 148.568, 25.8813, 3.88, 1.22, 130, "Leo"],
+[4689, "", 185.3164, -0.8139, 3.89, 0.02, 204, "Vir"],
+[7570, "", 298.4555, 1.0755, 3.9, 0.89, 326, "Aql"],
+[5787, "", 234.2528, -14.876, 3.91, 1.01, 80, "Lib"],
+[6324, "", 255.3266, 30.8887, 3.92, -0.01, 116, "Her"],
+[5778, "", 233.5, 31.2711, 4.14, -0.13, 121, "CrB"],
+[5947, "", 239.6723, 26.803, 4.15, 1.23, 136, "CrB"],
+[6322, "", 250.8364, 81.9896, 4.23, 0.89, 326, "UMi"],
+[7139, "", 283.8577, 36.9339, 4.3, 1.68, 0, "Lyr"],
+[5903, "", 235.7913, 77.7117, 4.32, 0.04, 204, "UMi"],
+[6789, "", 260.9513, 86.5659, 4.36, 0.02, 815, "UMi"],
+[7056, "", 281.4214, 37.6339, 4.36, 0.19, 105, "Lyr"],
+[5889, "", 237.6775, 25.9892, 4.63, 0.8, 233, "CrB"],
+[546, "", 28.7468, 19.4232, 4.75, -0.04, 125, "Ari"],
+[6555, "", 263.1957, 55.1554, 4.87, 0.28, 93, "Dra"],
+[6116, "", 244.1935, 75.6913, 4.95, 0.37, 76, "UMi"]
+];
+// [fullName, abbr, [[i,j],...]] — i,j index into STARS
+const FIGURES=[["Andromeda", "And", [[54, 224], [224, 55], [55, 72]]], ["Aquila", "Aql", [[300, 11], [11, 119], [119, 249], [249, 168], [249, 309], [309, 216]]], ["Aries", "Ari", [[48, 105], [105, 320]]], ["Auriga", "Aur", [[5, 40], [40, 103], [103, 112], [112, 203], [203, 5], [112, 166], [166, 5]]], ["Bo\u00f6tes", "Boo", [[2, 117], [117, 278], [278, 285], [285, 179], [179, 293], [293, 2], [2, 110]]], ["Canis Major", "CMa", [[0, 45], [0, 35], [35, 22], [35, 88]]], ["Canis Minor", "CMi", [[7, 154]]], ["Capricornus", "Cap", [[292, 189], [189, 146], [146, 299]]], ["Cassiopeia", "Cas", [[73, 66], [66, 90], [90, 109], [109, 252]]], ["Centaurus", "Cen", [[3, 10], [10, 76], [76, 94]]], ["Corona Borealis", "CrB", [[312, 298], [298, 68], [68, 306], [306, 319], [319, 313]]], ["Crux", "Cru", [[19, 23], [17, 131]]], ["Corvus", "Crv", [[98, 161], [161, 107], [107, 171], [171, 98]]], ["Cygnus", "Cyg", [[18, 64], [64, 188], [64, 145], [145, 304], [64, 89], [89, 212]]], ["Draco", "Dra", [[130, 69], [69, 301], [301, 321], [321, 130]]], ["Gemini", "Gem", [[46, 164], [164, 147], [147, 230], [15, 288], [288, 303], [303, 42], [46, 15]]], ["Hercules", "Her", [[133, 289], [289, 202], [202, 311], [311, 133], [133, 126]]], ["Leo", "Leo", [[165, 307], [307, 269], [269, 101], [101, 286], [286, 21], [101, 95], [95, 62], [62, 241], [241, 95], [241, 21]]], ["Libra", "Lib", [[123, 102], [102, 310], [310, 123], [123, 231]]], ["Lyra", "Lyr", [[4, 318], [318, 273], [273, 221], [221, 315], [315, 318]]], ["Ophiuchus", "Oph", [[59, 127], [127, 85], [85, 96], [96, 220], [220, 120], [120, 305], [305, 59]]], ["Orion", "Ori", [[9, 25], [9, 291], [291, 25], [25, 67], [67, 28], [28, 53], [9, 53], [53, 56], [56, 6], [6, 67]]], ["Pegasus", "Peg", [[91, 84], [136, 91], [82, 290], [290, 258], [258, 91]]], ["Perseus", "Per", [[157, 33], [33, 173], [173, 149], [149, 139], [33, 61]]], ["Scorpius", "Sco", [[104, 79], [151, 79], [79, 152], [152, 13], [13, 135], [135, 75], [75, 187], [187, 295], [295, 239], [239, 39], [39, 180], [180, 83], [83, 24], [24, 115]]], ["Sagittarius", "Sgr", [[100, 207], [207, 51], [51, 238], [238, 100], [100, 36], [36, 167], [167, 118], [118, 36], [118, 207], [207, 134], [134, 118]]], ["Taurus", "Tau", [[170, 12], [12, 256], [256, 296], [296, 302], [296, 275], [302, 287], [287, 26]]], ["Ursa Major", "UMa", [[34, 80], [80, 86], [86, 235], [235, 34], [235, 31], [31, 74], [74, 38]]], ["Ursa Minor", "UMi", [[50, 317], [317, 314], [314, 316], [316, 322], [322, 185], [185, 58], [58, 316]]], ["Virgo", "Vir", [[14, 297], [297, 254], [254, 137], [297, 308], [308, 294]]]];
+
+
+/* ================= ASTRONOMY MATH — pure functions =================
+   Formulas from the plan (Meeus, Astronomical Algorithms). All angles deg
+   in/out, radians only inside. */
+const D2R = Math.PI/180, R2D = 180/Math.PI;
+const norm360 = d => ((d % 360) + 360) % 360;
+
+// Step 1: Julian Date from Unix millis
+function julianDate(ms){ return ms/86400000 + 2440587.5; }
+
+// Step 2: Greenwich Mean Sidereal Time, degrees
+function gmst(jd){
+  const d = jd - 2451545.0, T = d/36525;
+  return norm360(280.46061837 + 360.98564736629*d + 0.000387933*T*T - T*T*T/38710000);
+}
+
+// Step 3: Local Sidereal Time (longitude EAST positive — Bangalore +77.59)
+function lst(gmstDeg, lonEastDeg){ return norm360(gmstDeg + lonEastDeg); }
+
+// Steps 4–5: equatorial -> horizontal. Returns {alt, az} degrees.
+function altAz(raDeg, decDeg, latDeg, lstDeg){
+  const H = norm360(lstDeg - raDeg);          // hour angle, deg
+  const h = H*D2R, phi = latDeg*D2R, dec = decDeg*D2R;
+  const sinAlt = Math.sin(phi)*Math.sin(dec) + Math.cos(phi)*Math.cos(dec)*Math.cos(h);
+  const alt = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
+  // acos input WILL exceed ±1 near zenith from float error — clamp (tested)
+  let cosA = (Math.sin(dec) - Math.sin(alt)*Math.sin(phi)) / (Math.cos(alt)*Math.cos(phi));
+  cosA = Math.max(-1, Math.min(1, cosA));
+  let A = Math.acos(cosA)*R2D;                // from North, clockwise through E
+  if (Math.sin(h) > 0) A = 360 - A;
+  return { alt: alt*R2D, az: norm360(A) };
+}
+
+// Step 6: stereographic projection. flip=-1 puts EAST on the LEFT (you look UP).
+const FLIP = -1;
+function project(altDeg, azDeg, cx, cy, R){
+  const r = R * Math.tan((90 - altDeg)*D2R/2);   // tan(45°)=1
+  return { x: cx + r*Math.sin(azDeg*D2R)*FLIP, y: cy - r*Math.cos(azDeg*D2R) };
+}
+
+/* Moon — truncated ELP/Meeus ch.47 short form, good to ~0.3° geocentric.
+   Terms: top 6 longitude, top 4 latitude, top 4 distance (Meeus Table 47.A/B).
+   Sun from Meeus ch.25 low precision. Returns of-date RA/Dec (deg), distance
+   (km), elongation & phase. */
+function sunEclLon(T){
+  const L0 = 280.46646 + 36000.76983*T + 0.0003032*T*T;
+  const M = (357.52911 + 35999.05029*T - 0.0001537*T*T)*D2R;
+  const C = (1.914602 - 0.004817*T)*Math.sin(M) + (0.019993 - 0.000101*T)*Math.sin(2*M)
+          + 0.000289*Math.sin(3*M);
+  return norm360(L0 + C);
+}
+function moonPos(jdVal){
+  const T = (jdVal - 2451545.0)/36525;
+  const Lp = norm360(218.3164477 + 481267.88123421*T - 0.0015786*T*T)*D2R;
+  const D  = norm360(297.8501921 + 445267.1114034*T - 0.0018819*T*T)*D2R;
+  const M  = norm360(357.5291092 + 35999.0502909*T - 0.0001536*T*T)*D2R;
+  const Mp = norm360(134.9633964 + 477198.8675055*T + 0.0087414*T*T)*D2R;
+  const F  = norm360(93.2720950 + 483202.0175233*T - 0.0036539*T*T)*D2R;
+  const lam = norm360(Lp*R2D
+    + 6.288774*Math.sin(Mp) + 1.274027*Math.sin(2*D - Mp) + 0.658314*Math.sin(2*D)
+    + 0.213618*Math.sin(2*Mp) - 0.185116*Math.sin(M) - 0.114332*Math.sin(2*F));
+  const bet = 5.128122*Math.sin(F) + 0.280602*Math.sin(Mp + F)
+    + 0.277693*Math.sin(Mp - F) + 0.173237*Math.sin(2*D - F);
+  const dist = 385000.56 - 20905.355*Math.cos(Mp) - 3699.111*Math.cos(2*D - Mp)
+    - 2955.968*Math.cos(2*D);
+  const eps = (23.4392911 - 0.0130042*T)*D2R;
+  const l = lam*D2R, b = bet*D2R;
+  const ra = Math.atan2(Math.sin(l)*Math.cos(eps) - Math.tan(b)*Math.sin(eps), Math.cos(l))*R2D;
+  const dec = Math.asin(Math.sin(b)*Math.cos(eps) + Math.cos(b)*Math.sin(eps)*Math.sin(l))*R2D;
+  const sunLam = sunEclLon(T);
+  const elong = Math.acos(Math.max(-1, Math.min(1,
+    Math.cos(b)*Math.cos((lam - sunLam)*D2R))))*R2D;
+  const phaseAngle = norm360(lam - sunLam);      // 0 new, 90 first qtr, 180 full
+  return { ra: norm360(ra), dec, dist, elong, phaseAngle,
+           illum: (1 - Math.cos(elong*D2R))/2 };
+}
+function moonPhaseName(phaseAngle){
+  const names = ["New Moon","Waxing Crescent","First Quarter","Waxing Gibbous",
+                 "Full Moon","Waning Gibbous","Last Quarter","Waning Crescent"];
+  return names[Math.floor(norm360(phaseAngle + 22.5)/45) % 8];
+}
+// topocentric altitude correction (Moon parallax ~1°; stars: negligible, skipped)
+function parallaxAlt(altDeg, distKm){
+  const hp = Math.asin(6378.14/distKm);
+  return altDeg - Math.asin(Math.sin(hp)*Math.cos(altDeg*D2R))*R2D;
+}
+// convenience: catalog star -> altaz at time
+function starAltAz(star, ms, latDeg, lonDeg){
+  return altAz(star[2], star[3], latDeg, lst(gmst(julianDate(ms)), lonDeg));
+}
+
+/* ================= STATE ================= */
+const BLR = { lat: 12.97, lon: 77.59, name: "Bengaluru" };
+let obs = { ...BLR };
+let fixedMs = null;         // non-null => clock frozen (?at= or manual set)
+let scrubMin = 0;
+let bortle = false;
+const params = new URLSearchParams(location.search);
+if (params.get("at")){
+  const p = Date.parse(params.get("at"));
+  if (!isNaN(p)) fixedMs = p;
+}
+const showBelow = params.has("below");
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function nowMs(){ return (fixedMs !== null ? fixedMs : Date.now()) + scrubMin*60000; }
+
+const byHR = {};
+STARS.forEach((s, i) => byHR[s[0]] = i);
+
+/* ================= RENDER ================= */
+const cv = document.getElementById("sky"), ctx = cv.getContext("2d");
+let W = 0, H = 0, CX = 0, CY = 0, RD = 0;
+function resize(){
+  const dpr = window.devicePixelRatio || 1;
+  W = innerWidth; H = innerHeight;
+  cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+  cv.style.width = W + "px"; cv.style.height = H + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const portrait = H > W;
+  CX = W/2;
+  CY = portrait ? H/2 - 40 : H/2;
+  RD = Math.min(W, H)/2 - (portrait ? 24 : 34);
+}
+addEventListener("resize", resize);
+resize();
+
+function starColor(bv){
+  return bv < 0.3 ? "#cdd8ff" : bv > 1.0 ? "#ffd9a0" : "#e6edf7";
+}
+function starSize(mag){
+  if (mag <= 1) return 3.2 + (1 - mag)*0.5;
+  return Math.max(0.8, 3.2 - (mag - 1)*(2.4/3.5));
+}
+
+let screenStars = [];   // [{i,x,y,alt,az,size}] rebuilt each frame for hit-testing
+
+function draw(){
+  const ms = nowMs();
+  const lstDeg = lst(gmst(julianDate(ms)), obs.lon);
+  const t = performance.now();
+  ctx.clearRect(0, 0, W, H);
+
+  // sky disc bg
+  const g = ctx.createRadialGradient(CX, CY, 0, CX, CY, RD);
+  g.addColorStop(0, "#0a1224"); g.addColorStop(1, "#060a13");
+  ctx.beginPath(); ctx.arc(CX, CY, RD, 0, 7); ctx.fillStyle = g; ctx.fill();
+
+  // altitude circles 30° / 60°
+  ctx.strokeStyle = "rgba(139,152,173,.12)"; ctx.lineWidth = 1;
+  for (const a of [30, 60]){
+    ctx.beginPath(); ctx.arc(CX, CY, RD*Math.tan((90 - a)*D2R/2), 0, 7); ctx.stroke();
+  }
+  // horizon ring
+  ctx.beginPath(); ctx.arc(CX, CY, RD, 0, 7);
+  ctx.strokeStyle = "rgba(110,231,255,.45)"; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.beginPath(); ctx.arc(CX, CY, RD + 5, 0, 7);
+  ctx.strokeStyle = "rgba(110,231,255,.10)"; ctx.lineWidth = 7; ctx.stroke();
+
+  // cardinal labels: N top, E LEFT (sky maps mirror ground maps — you look UP)
+  // placed on a fixed ring just outside the horizon, not sky-projected
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const ring = RD + 15;
+  const compass = [["N",0,1],["E",90,1],["S",180,1],["W",270,1],
+                   ["NE",45,0],["SE",135,0],["SW",225,0],["NW",315,0]];
+  for (const [name, az, major] of compass){
+    const x = CX + ring*Math.sin(az*D2R)*FLIP, y = CY - ring*Math.cos(az*D2R);
+    ctx.font = major ? "600 14px ui-monospace,Menlo,monospace"
+                     : "10px ui-monospace,Menlo,monospace";
+    ctx.fillStyle = !major ? "rgba(139,152,173,.6)"
+                  : name === "N" ? "#f0abfc" : "#6ee7ff";
+    ctx.fillText(name, x, y);
+  }
+
+  // per-star alt/az
+  const pos = STARS.map(s => altAz(s[2], s[3], obs.lat, lstDeg));
+
+  // constellation lines (drop any line with an endpoint below horizon)
+  ctx.strokeStyle = "rgba(110,231,255,.25)"; ctx.lineWidth = 1;
+  for (const [full, ab, segs] of FIGURES){
+    for (const [i, j] of segs){
+      if (pos[i].alt <= 0 || pos[j].alt <= 0) continue;
+      if (bortle && (STARS[i][4] > 3 || STARS[j][4] > 3)) continue;
+      const a = project(pos[i].alt, pos[i].az, CX, CY, RD);
+      const b = project(pos[j].alt, pos[j].az, CX, CY, RD);
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
+  }
+  // constellation names — fade in when >60% of the figure is up
+  ctx.font = "600 10.5px ui-monospace,Menlo,monospace";
+  for (const [full, ab, segs] of FIGURES){
+    const uniq = [...new Set(segs.flat())];
+    const up = uniq.filter(i => pos[i].alt > 0);
+    const frac = up.length/uniq.length;
+    if (frac <= 0.6) continue;
+    let sx = 0, sy = 0;
+    for (const i of up){
+      const p = project(pos[i].alt, pos[i].az, CX, CY, RD);
+      sx += p.x; sy += p.y;
+    }
+    ctx.fillStyle = `rgba(167,139,250,${(0.85*(frac - 0.6)/0.4).toFixed(3)})`;
+    ctx.fillText(full.toUpperCase(), sx/up.length, sy/up.length - 12);
+  }
+
+  // stars
+  screenStars = [];
+  for (let i = 0; i < STARS.length; i++){
+    const s = STARS[i], { alt, az } = pos[i];
+    const below = alt <= 0;
+    if (s[4] > 5) continue; // HR 5958 (T CrB): BSC lists its 1866 nova peak; really mag ~10, kept only to preserve catalog indices
+    if (below && !showBelow) continue;
+    if (bortle && s[4] > 3) continue;
+    const p = project(alt, az, CX, CY, RD);
+    const size = starSize(s[4]);
+    let alpha = below ? 0.05
+      : Math.min(1, 1.15 - s[4]*0.16);
+    if (!REDUCED && !below && s[4] > 1.5)
+      alpha *= 0.82 + 0.18*Math.sin(t/(340 + (i%7)*60) + i*2.39);
+    ctx.globalAlpha = Math.max(0.12, alpha);
+    ctx.fillStyle = starColor(s[5]);
+    if (s[4] <= 1 && !below){                 // glow for the bright ones
+      ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 9;
+    }
+    ctx.beginPath(); ctx.arc(p.x, p.y, size, 0, 7); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+    if (!below) screenStars.push({ i, x: p.x, y: p.y, alt, az });
+    if (s[1] && s[4] <= 0.8 && !below){
+      ctx.fillStyle = "rgba(230,237,247,.55)";
+      ctx.font = "10px ui-monospace,Menlo,monospace";
+      ctx.textAlign = "left";
+      ctx.fillText(s[1], p.x + 6, p.y - 5);
+      ctx.textAlign = "center";
+    }
+  }
+
+  // Moon
+  const mp = moonPos(julianDate(ms));
+  const mAA = altAz(mp.ra, mp.dec, obs.lat, lstDeg);
+  mAA.alt = parallaxAlt(mAA.alt, mp.dist);
+  document.getElementById("moonphase").textContent =
+    `${moonPhaseName(mp.phaseAngle)} · ${(mp.illum*100).toFixed(0)}%`;
+  if (mAA.alt > 0){
+    const p = project(mAA.alt, mAA.az, CX, CY, RD);
+    drawMoon(p.x, p.y, 7, mp.phaseAngle);
+    ctx.fillStyle = "rgba(252,211,77,.7)";
+    ctx.font = "10px ui-monospace,Menlo,monospace";
+    ctx.fillText("MOON", p.x, p.y - 14);
+  }
+
+  // HUD clock + LST
+  const d = new Date(ms);
+  document.getElementById("clock").textContent =
+    d.toLocaleString("en-IN", { day:"2-digit", month:"short", hour:"2-digit",
+      minute:"2-digit", second:"2-digit", hour12:false }) +
+    (fixedMs !== null ? " ⏸" : "");
+  document.getElementById("lstout").textContent =
+    (lstDeg/15).toFixed(3).padStart(6,"0") + " h sidereal";
+}
+
+function drawMoon(x, y, r, phaseAngle){
+  // phaseAngle: 0 new → 180 full → 360. Illuminated limb via two arcs.
+  const ph = norm360(phaseAngle);
+  const k = (1 - Math.cos(ph*D2R))/2;        // illuminated fraction
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.shadowColor = "#fcd34d"; ctx.shadowBlur = 12;
+  ctx.fillStyle = "#1c2436";                 // dark side
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#f6e7b6";
+  const waxing = ph < 180;                    // waxing: lit on the... E side (left here)
+  ctx.beginPath();
+  ctx.arc(0, 0, r, -Math.PI/2, Math.PI/2, waxing);   // half toward lit limb
+  ctx.ellipse(0, 0, r*Math.abs(2*k - 1), r, 0, Math.PI/2, -Math.PI/2, (k > 0.5) === waxing);
+  ctx.fill();
+  ctx.restore();
+}
+
+/* ================= INTERACTION ================= */
+cv.addEventListener("click", e => {
+  const mx = e.clientX, my = e.clientY;
+  let best = null, bd = 20*20;
+  for (const s of screenStars){
+    const dx = s.x - mx, dy = s.y - my;
+    const d2 = dx*dx + dy*dy;
+    if (d2 < bd){ bd = d2; best = s; }
+  }
+  const card = document.getElementById("card");
+  if (!best){ card.classList.remove("show"); return; }
+  const s = STARS[best.i];
+  document.getElementById("cname").textContent = s[1] || `HR ${s[0]}`;
+  document.getElementById("ckv").innerHTML =
+    `mag <b>${s[4].toFixed(2)}</b> · B–V <b>${s[5].toFixed(2)}</b><br>` +
+    (s[6] ? `distance <b>≈ ${s[6]} ly</b><br>` : "") +
+    (s[7] ? `constellation <b>${s[7]}</b><br>` : "") +
+    `alt <b>${best.alt.toFixed(1)}°</b> · az <b>${best.az.toFixed(1)}°</b>` +
+    (s[4] > 3 ? `<br><span style="color:#f0abfc">too faint for Bangalore skies</span>` : "");
+  card.classList.add("show");
+});
+document.getElementById("cardx").addEventListener("click",
+  () => document.getElementById("card").classList.remove("show"));
+
+const scrubber = document.getElementById("scrubber");
+scrubber.addEventListener("input", () => {
+  scrubMin = +scrubber.value;
+  const h = Math.trunc(scrubMin/60), m = Math.abs(scrubMin%60);
+  document.getElementById("scrubval").textContent =
+    `${scrubMin >= 0 ? "+" : "−"}${Math.abs(h)}h${String(m).padStart(2,"0")}`;
+  if (REDUCED || fixedMs !== null) draw();
+});
+const dtin = document.getElementById("dtin");
+dtin.addEventListener("change", () => {
+  const p = new Date(dtin.value);
+  if (!isNaN(p.getTime())){ fixedMs = p.getTime(); scrubMin = 0;
+    scrubber.value = 0; document.getElementById("scrubval").textContent = "+0h00"; draw(); }
+});
+document.getElementById("livebtn").addEventListener("click", () => {
+  fixedMs = null; scrubMin = 0; scrubber.value = 0;
+  document.getElementById("scrubval").textContent = "+0h00"; draw();
+});
+document.getElementById("bortlebtn").addEventListener("click", e => {
+  bortle = !bortle; e.target.classList.toggle("on", bortle); draw();
+});
+document.getElementById("geobtn").addEventListener("click", () => {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(p => {
+    obs = { lat: p.coords.latitude, lon: p.coords.longitude, name: "your location" };
+    document.getElementById("loc").textContent =
+      `${Math.abs(obs.lat).toFixed(2)}°${obs.lat >= 0 ? "N" : "S"} ` +
+      `${Math.abs(obs.lon).toFixed(2)}°${obs.lon >= 0 ? "E" : "W"} · you`;
+    draw();
+  }, () => {});   // denied: stay on Bangalore
+});
+// keep the datetime input synced-ish when idle
+function syncDtin(){
+  if (document.activeElement === dtin) return; // don't clobber while the user is typing
+  const d = new Date(nowMs());
+  const pad = n => String(n).padStart(2, "0");
+  dtin.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+syncDtin(); setInterval(syncDtin, 30000);
+
+/* ================= MAIN LOOP ================= */
+if (REDUCED){
+  draw(); setInterval(draw, 1000);       // no twinkle, 1 fps clock tick
+} else {
+  (function loop(){ draw(); requestAnimationFrame(loop); })();
+}
+
+/* ================= ?test HARNESS =================
+   Ground truth precomputed with astropy 6.0.1 (tools/make_fixtures.py):
+   observer Bangalore 12.97N 77.59E 920m, pressure=0 (no refraction). */
+if (params.has("test")){
+  const results = [];
+  const T = (name, ok, detail) => results.push({ name, ok, detail: detail || "" });
+  const wrapDiff = (a, b) => { const d = Math.abs(norm360(a) - norm360(b)); return Math.min(d, 360 - d); };
+  const BL = { lat: 12.97, lon: 77.59 };
+
+  // a. JD exact
+  T("JD 2000-01-01T12Z == 2451545.0",
+    julianDate(Date.parse("2000-01-01T12:00:00Z")) === 2451545.0);
+
+  // b. GMST vs astropy < 0.01°
+  {
+    const g = gmst(julianDate(Date.parse("2026-07-12T16:30:00Z")));
+    T("GMST 2026-07-12T16:30Z ≈ 178.08282°", Math.abs(g - 178.08282) < 0.01, g.toFixed(5));
+  }
+
+  // c. Sirius alt/az at 3 instants (< 0.5°) — high / rising-east / below horizon
+  const sirius = STARS[byHR[2491]];
+  const SIR_FIX = [
+    ["2026-02-15T16:00:00Z", 60.2382, 183.2412, "high"],
+    ["2026-02-15T11:00:00Z", 11.5349, 110.4117, "rising E"],
+    ["2026-02-15T00:00:00Z", -33.0653, 258.2957, "below"],
+  ];
+  for (const [iso, ealt, eaz, tag] of SIR_FIX){
+    const a = starAltAz(sirius, Date.parse(iso), BL.lat, BL.lon);
+    T(`Sirius ${tag} alt≈${ealt}`, Math.abs(a.alt - ealt) < 0.5, a.alt.toFixed(3));
+    T(`Sirius ${tag} az≈${eaz}`, wrapDiff(a.az, eaz) < 0.5, a.az.toFixed(3));
+  }
+
+  // Polaris pinned north at ~latitude at 5 spread instants (astropy fixtures)
+  const polaris = STARS[byHR[424]];
+  const POL_FIX = [
+    ["2026-01-05T18:00:00Z", 13.3989, 359.5384],
+    ["2026-03-20T22:30:00Z", 12.3537, 0.0826],
+    ["2026-07-12T16:30:00Z", 12.4212, 0.3154],
+    ["2026-09-01T01:15:00Z", 13.5152, 359.6793],
+    ["2026-11-30T14:45:00Z", 13.4524, 0.4007],
+  ];
+  let polOK = true, polDet = [];
+  for (const [iso, ealt, eaz] of POL_FIX){
+    const a = starAltAz(polaris, Date.parse(iso), BL.lat, BL.lon);
+    const ok = Math.abs(a.alt - ealt) < 0.5 && wrapDiff(a.az, eaz) < 0.5
+      && Math.abs(a.alt - BL.lat) < 1.0 && wrapDiff(a.az, 0) < 1.5;
+    if (!ok) polOK = false;
+    polDet.push(`${a.alt.toFixed(2)}/${a.az.toFixed(2)}`);
+  }
+  T("Polaris ≈13° due N at 5 instants (astropy ±0.5°)", polOK, polDet.join(" "));
+
+  // d. zenith acos clamp → finite
+  {
+    const lstDeg = lst(gmst(julianDate(Date.parse("2026-07-12T16:30:00Z"))), BL.lon);
+    const a = altAz(lstDeg, BL.lat, BL.lat, lstDeg);   // star exactly at zenith
+    T("zenith star finite (acos clamp)", isFinite(a.alt) && isFinite(a.az),
+      `${a.alt.toFixed(4)}/${a.az.toFixed(4)}`);
+  }
+
+  // e. Moon vs astropy < 1.5° + phase name at 2026-07-29 full moon
+  {
+    const ms = Date.parse("2026-07-29T16:00:00Z");
+    const mp = moonPos(julianDate(ms));
+    const lstDeg = lst(gmst(julianDate(ms)), BL.lon);
+    const a = altAz(mp.ra, mp.dec, BL.lat, lstDeg);
+    a.alt = parallaxAlt(a.alt, mp.dist);
+    T("Moon alt ≈ 33.614 (±1.5°)", Math.abs(a.alt - 33.614) < 1.5, a.alt.toFixed(3));
+    T("Moon az ≈ 126.249 (±1.5°)", wrapDiff(a.az, 126.2492) < 1.5, a.az.toFixed(3));
+    T("Moon phase = Full Moon, illum > 97%",
+      moonPhaseName(mp.phaseAngle) === "Full Moon" && mp.illum > 0.97,
+      `${moonPhaseName(mp.phaseAngle)} ${(mp.illum*100).toFixed(1)}%`);
+  }
+
+  // catalog sanity
+  T("catalog 300±50 stars", STARS.length >= 250 && STARS.length <= 350, String(STARS.length));
+  T("Sirius/Canopus/Vega/Betelgeuse present",
+    [2491, 2326, 7001, 2061].every(hr => byHR[hr] !== undefined));
+  T("all rows finite", STARS.every(s =>
+    isFinite(s[2]) && isFinite(s[3]) && isFinite(s[4]) && isFinite(s[5])));
+  T("figure line indices valid", FIGURES.every(f =>
+    f[2].every(([i, j]) => STARS[i] !== undefined && STARS[j] !== undefined)));
+
+  // Sirius tap-card data
+  T("Sirius card: mag −1.46, ≈9 ly, CMa",
+    sirius[1] === "Sirius" && sirius[4] === -1.46 &&
+    Math.abs(sirius[6] - 8.6) < 1 && sirius[7] === "CMa");
+
+  // E on the LEFT + N up (projection orientation)
+  {
+    const e = project(45, 90, 0, 0, 100), w = project(45, 270, 0, 0, 100),
+          n = project(45, 0, 0, 0, 100);
+    T("projection: E left, W right, N up", e.x < 0 && w.x > 0 && n.y < 0);
+  }
+
+  // stars drift E → W with time (scrub direction)
+  {
+    const t0 = Date.parse("2026-02-15T16:00:00Z");
+    const a0 = starAltAz(sirius, t0, BL.lat, BL.lon);
+    const a1 = starAltAz(sirius, t0 + 3600000, BL.lat, BL.lon);
+    const p0 = project(a0.alt, a0.az, 0, 0, 100), p1 = project(a1.alt, a1.az, 0, 0, 100);
+    T("1h later: Sirius moved toward W (right)", p1.x > p0.x,
+      `${p0.x.toFixed(1)}→${p1.x.toFixed(1)}`);
+  }
+
+  const passed = results.filter(r => r.ok).length;
+  const verdict = passed === results.length
+    ? `TESTS PASS ${passed}/${results.length}`
+    : `TESTS FAIL ${passed}/${results.length}`;
+  document.title = verdict;
+  const el = document.getElementById("test-out");
+  el.style.display = "block";
+  el.textContent = verdict + "\n" + results.map(r =>
+    `${r.ok ? "✓" : "✗"} ${r.name}${r.detail ? "  [" + r.detail + "]" : ""}`).join("\n");
+}
+</script>
+</body>
+</html>

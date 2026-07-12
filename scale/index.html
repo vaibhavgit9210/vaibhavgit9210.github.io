@@ -1,0 +1,840 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scale of the Universe — desk to the edge of everything</title>
+<meta name="description" content="One long scroll on a logarithmic scale: from a desk in Bangalore (1 m) to the observable universe (8.8×10²⁶ m).">
+<meta property="og:title" content="Scale of the Universe">
+<meta property="og:description" content="Scroll from a desk in Bangalore to the edge of everything — 27 orders of magnitude.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>">
+<style>
+:root{
+  --bg:#060a13; --fg:#e6edf7; --muted:#8b98ad;
+  --cyan:#6ee7ff; --violet:#a78bfa; --pink:#f0abfc; --yellow:#fcd34d;
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  overflow-x:hidden;
+}
+#cv{position:fixed; inset:0; width:100vw; height:100vh; display:block; z-index:0}
+#spacer{position:relative; width:1px; visibility:hidden}
+.back{
+  position:fixed; top:14px; left:14px; z-index:30;
+  color:var(--cyan); text-decoration:none; font-size:13px; letter-spacing:.04em;
+  padding:7px 12px; border-radius:10px;
+  background:rgba(10,16,30,.55); border:1px solid rgba(110,231,255,.22);
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+}
+.back:hover{border-color:rgba(110,231,255,.6); box-shadow:0 0 14px rgba(110,231,255,.25)}
+.back:focus-visible{outline:2px solid var(--cyan); outline-offset:2px}
+#intro{
+  position:fixed; top:9vh; left:0; width:100%; z-index:5; text-align:center;
+  pointer-events:none; transition:opacity .2s linear;
+}
+#intro h1{
+  margin:0 0 10px; font-size:clamp(22px,4.4vw,44px); font-weight:700; letter-spacing:.06em;
+  color:var(--fg); text-shadow:0 0 24px rgba(110,231,255,.35);
+}
+#intro h1 .u{color:var(--cyan)}
+#intro p{margin:0; color:var(--muted); font-size:clamp(12px,1.6vw,15px); letter-spacing:.05em}
+#intro .hint{
+  margin-top:26px; color:var(--cyan); font-size:13px; letter-spacing:.28em; opacity:.9;
+  animation:bob 2.2s ease-in-out infinite;
+}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(7px)}}
+#hud{
+  position:fixed; left:16px; bottom:16px; z-index:10; pointer-events:none;
+  padding:10px 14px 12px; border-radius:12px; max-width:min(340px,72vw);
+  background:rgba(8,13,25,.6); border:1px solid rgba(167,139,250,.2);
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+}
+#scaleText{font-size:15px; color:var(--cyan); letter-spacing:.05em}
+#scaleText .lbl{color:var(--muted); font-size:11px; letter-spacing:.18em}
+#plainText{margin-top:3px; font-size:12px; color:var(--muted); letter-spacing:.03em; min-height:15px}
+#strip{
+  margin-top:9px; width:240px; max-width:100%; height:26px; position:relative; overflow:hidden;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);
+}
+#stripInner{position:absolute; top:0; left:0; height:100%; will-change:transform}
+.tick{position:absolute; top:0; width:1px; height:8px; background:rgba(139,152,173,.65)}
+.tick.major{height:12px; background:var(--cyan)}
+.tick span{
+  position:absolute; top:12px; left:0; transform:translateX(-50%);
+  font-size:9px; color:var(--muted); white-space:nowrap;
+}
+#stripCenter{
+  position:absolute; left:50%; top:0; width:1px; height:26px;
+  background:var(--yellow); box-shadow:0 0 6px var(--yellow);
+}
+#rail{
+  position:fixed; right:10px; top:50%; transform:translateY(-50%); z-index:10;
+  display:flex; flex-direction:column; gap:0; padding:6px 3px; border-radius:12px;
+  background:rgba(8,13,25,.5); border:1px solid rgba(110,231,255,.14);
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+}
+#rail button{
+  appearance:none; border:0; background:transparent; cursor:pointer; position:relative;
+  width:26px; height:calc(min(64vh,540px)/28); min-height:8px; padding:0;
+  display:flex; align-items:center; justify-content:flex-end;
+}
+#rail button::after{
+  content:""; display:block; width:8px; height:1px; background:rgba(139,152,173,.55);
+  margin-right:4px; transition:width .15s,background .15s;
+}
+#rail button.mark::after{width:14px; height:2px; border-radius:2px; background:var(--violet)}
+#rail button:hover::after,#rail button:focus-visible::after{width:18px; background:var(--cyan)}
+#rail button:focus-visible{outline:1px solid var(--cyan); outline-offset:-1px; border-radius:4px}
+#rail button.cur::after{background:var(--yellow); box-shadow:0 0 6px var(--yellow); width:16px}
+#testout{
+  position:fixed; top:12px; right:12px; z-index:40; font-size:12px; white-space:pre-wrap;
+  max-width:46vw; padding:10px 12px; border-radius:10px; display:none;
+  background:rgba(8,13,25,.85); border:1px solid rgba(252,211,77,.4); color:var(--yellow);
+}
+@media (max-width:640px){
+  #hud{left:10px; bottom:10px; padding:8px 10px 9px; max-width:62vw}
+  #scaleText{font-size:13px}
+  #plainText{font-size:11px}
+  #strip{width:180px}
+  #rail{right:4px; padding:4px 2px}
+  #rail button{width:20px}
+  .back{top:10px; left:10px; font-size:12px; padding:6px 10px}
+}
+@media (prefers-reduced-motion:reduce){
+  #intro .hint{animation:none}
+  .back,#rail button::after{transition:none}
+}
+</style>
+</head>
+<body>
+<a class="back" href="../arcade/">&larr; arcade</a>
+
+<div id="intro" aria-hidden="true">
+  <h1>SCALE OF THE <span class="u">UNIVERSE</span></h1>
+  <p>from a desk in Bangalore to the edge of everything · 10⁰ → 10²⁷ m</p>
+  <div class="hint">SCROLL ▼</div>
+</div>
+
+<div id="hud" aria-hidden="true">
+  <div id="scaleText"><span class="lbl">SCALE </span><span id="scaleVal"></span></div>
+  <div id="plainText"></div>
+  <div id="strip"><div id="stripInner"></div><div id="stripCenter"></div></div>
+</div>
+
+<nav id="rail" aria-label="Jump to a scale decade"></nav>
+<div id="testout" role="status"></div>
+<canvas id="cv" aria-hidden="true"></canvas>
+<div id="spacer"></div>
+
+<script>
+'use strict';
+/* ============================================================
+   Scale of the Universe — the whole engine is ONE formula:
+     exponent = scrollProgress * 27
+     S        = 10^exponent            (metres per viewport-height)
+     px       = size_m / S * viewportH
+   Everything else is presentation.
+   ============================================================ */
+const DECADES = 27;
+const PX_PER_DECADE = 1500;             // the ONE tunable constant for scroll length
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $  = s => document.querySelector(s);
+const clamp = (v,a,b) => v<a?a:v>b?b:v;
+const smooth = t => { t = clamp(t,0,1); return t*t*(3-2*t); };
+
+/* ---------- pure functions (tested by ?test) ---------- */
+function pxSize(size_m, exponent, vh){ return size_m / Math.pow(10, exponent) * vh; }
+function exponentForTarget(size_m){    // land object at 0.3 * viewportH
+  return clamp(Math.log10(size_m / 0.3), 0, DECADES);
+}
+function culled(px, vh){ return px < 0.5 || px > vh*4; }
+function fadeAlpha(r){                 // r = px / viewportH ; range sits INSIDE cull range
+  if (r <= 0.02 || r >= 3) return 0;
+  if (r <  0.15) return smooth((r - 0.02) / 0.13);
+  if (r <= 0.9)  return 1;
+  return smooth((3 - r) / 2.1);
+}
+
+/* ---------- content: the writing is the product ---------- */
+const C = {cyan:'#6ee7ff', violet:'#a78bfa', pink:'#f0abfc', yellow:'#fcd34d', fg:'#e6edf7'};
+const OBJECTS = [
+{id:'desk',      name:'Your desk',                 short:'your desk',        size_m:1,        sizeLabel:'1 m',                     kind:'emoji', emoji:'🪑', color:C.cyan,
+  fact:'One metre — the scale your hands were built for.'},
+{id:'you',       name:'You',                       short:'you',              size_m:1.7,      sizeLabel:'1.7 m',                   kind:'emoji', emoji:'🧍', color:C.pink,
+  fact:'1.7 metres of stardust, currently scrolling.'},
+{id:'auto',      name:'Auto-rickshaw',             short:'the auto',         size_m:3,        sizeLabel:'3 m',                     kind:'emoji', emoji:'🛺', color:C.yellow,
+  fact:'Three wheels, one horn, infinite bravery.'},
+{id:'plot',      name:'The construction site',     short:'the plot',         size_m:30,       sizeLabel:'30 m',                    kind:'emoji', emoji:'🏗️', color:C.violet,
+  fact:'The family plot. Every empire starts somewhere.'},
+{id:'stadium',   name:'Chinnaswamy Stadium',       short:'the stadium',      size_m:160,      sizeLabel:'160 m',                   kind:'emoji', emoji:'🏟️', color:C.cyan,
+  fact:'The loudest 160 metres in Bengaluru on match night.'},
+{id:'burj',      name:'Burj Khalifa',              short:'the Burj',         size_m:828,      sizeLabel:'828 m',                   kind:'spire', color:C.yellow,
+  fact:'Humanity’s tallest build — visible from 95 km away.'},
+{id:'everest',   name:'Mount Everest',             short:'Everest',          size_m:8848,     sizeLabel:'8,848 m',                 kind:'emoji', emoji:'🏔️', color:C.fg,
+  fact:'Airliners cruise barely three kilometres above this summit.'},
+{id:'blr',       name:'Bengaluru',                 short:'Bengaluru',        size_m:4.2e4,    sizeLabel:'42 km',                   kind:'region', color:C.cyan,
+  fact:'12 million people, one shared traffic jam.'},
+{id:'karman',    name:'Kármán line',               short:'the hop to space', size_m:1e5,      sizeLabel:'100 km',                  kind:'region', color:C.violet,
+  fact:'Space begins 100 km up — an hour’s drive, straight up.'},
+{id:'karnataka', name:'Karnataka',                 short:'Karnataka',        size_m:7.5e5,    sizeLabel:'750 km',                  kind:'region', color:C.yellow,
+  fact:'One state, longer than most countries.'},
+{id:'india',     name:'India',                     short:'India',            size_m:3.2e6,    sizeLabel:'3,200 km',                kind:'region', color:C.pink,
+  fact:'Kashmir to Kanyakumari — 3,200 km of everything.'},
+{id:'earth',     name:'Earth',                     short:'Earth',            size_m:1.2742e7, sizeLabel:'12,742 km',               kind:'earth', color:C.cyan,
+  fact:'Every human who ever lived, lived here.'},
+{id:'jupiter',   name:'Jupiter',                   short:'Jupiter',          size_m:1.3982e8, sizeLabel:'139,820 km',              kind:'jupiter', color:C.yellow,
+  fact:'1,300 Earths would fit inside.'},
+{id:'moongap',   name:'Earth–Moon distance',       short:'the Moon gap',     size_m:3.844e8,  sizeLabel:'384,400 km',              kind:'orbit', color:C.cyan,
+  fact:'All seven other planets fit in this gap.'},
+{id:'sun',       name:'The Sun',                   short:'the Sun',          size_m:1.392e9,  sizeLabel:'1.39×10⁹ m',              kind:'sun', color:C.yellow,
+  fact:'99.86% of the solar system’s mass, right here.'},
+{id:'au',        name:'One Astronomical Unit',     short:'an AU',            size_m:1.496e11, sizeLabel:'1 AU · 1.5×10¹¹ m',       kind:'orbit', color:C.violet,
+  fact:'Sunlight crosses this in 8 minutes 20 seconds.'},
+{id:'betelgeuse',name:'Betelgeuse',                short:'Betelgeuse',       size_m:1.2e12,   sizeLabel:'1.2×10¹² m',              kind:'redgiant', color:C.pink,
+  fact:'Put it where the Sun is — it swallows Jupiter.'},
+{id:'solsys',    name:'The Solar System',          short:'the solar system', size_m:9.0e12,   sizeLabel:'9×10¹² m',                kind:'solarsystem', color:C.yellow,
+  fact:'Neptune’s orbit — the Sun’s family portrait frame.'},
+{id:'voyager',   name:'Voyager 1’s journey',       short:'Voyager’s trek',   size_m:2.5e13,   sizeLabel:'2.5×10¹³ m',              kind:'voyager', color:C.cyan,
+  fact:'Farthest human-made object. Launched 1977. Still whispering home.'},
+{id:'lightmonth',name:'One light-month',           short:'a light-month',    size_m:7.77e14,  sizeLabel:'7.8×10¹⁴ m',              kind:'lightring', color:C.violet,
+  fact:'Light itself needs a month to cross this.'},
+{id:'oort',      name:'The Oort Cloud',            short:'the Oort cloud',   size_m:9.46e15,  sizeLabel:'≈ 1 light-year',          kind:'shell', color:C.cyan,
+  fact:'A trillion sleeping comets wrap the solar system.'},
+{id:'proxima',   name:'To Proxima Centauri',       short:'the trip to Proxima', size_m:4.0e16, sizeLabel:'4.2 ly · 4×10¹⁶ m',      kind:'binaryline', color:C.pink,
+  fact:'The nearest star: 4.2 years at light speed.'},
+{id:'hood',      name:'Stellar neighborhood',      short:'the neighborhood', size_m:9.5e17,   sizeLabel:'100 ly',                  kind:'cluster', color:C.cyan,
+  fact:'Almost every star your eyes can see lives here.'},
+{id:'orion',     name:'The Orion Arm',             short:'the Orion Arm',    size_m:3.0e19,   sizeLabel:'3,500 ly',                kind:'arc', color:C.violet,
+  fact:'Our galactic street address.'},
+{id:'milkyway',  name:'The Milky Way',             short:'the Milky Way',    size_m:1.0e21,   sizeLabel:'100,000 ly',              kind:'galaxy', color:C.violet,
+  fact:'400 billion stars. You are here — nowhere special.'},
+{id:'andromeda', name:'To Andromeda',              short:'the Andromeda gap', size_m:2.4e22,  sizeLabel:'2.5 million ly',          kind:'twogalaxies', color:C.pink,
+  fact:'Closest big galaxy — it arrives in 4 billion years.'},
+{id:'localgroup',name:'The Local Group',           short:'the Local Group',  size_m:6.0e22,   sizeLabel:'≈ 6 million ly',          kind:'galaxycluster', color:C.cyan,
+  fact:'Our gang: 80-odd galaxies, gravitationally stuck together.'},
+{id:'virgo',     name:'Virgo Supercluster',        short:'Virgo',            size_m:5.0e23,   sizeLabel:'≈ 50 million ly',         kind:'galaxycluster', color:C.violet,
+  fact:'Thousands of galaxies. The Local Group is a suburb.'},
+{id:'laniakea',  name:'Laniakea',                  short:'Laniakea',         size_m:1.6e25,   sizeLabel:'520 million ly',          kind:'web', color:C.pink,
+  fact:'“Immeasurable heaven” — 100,000 galaxies drifting together.'},
+{id:'universe',  name:'The Observable Universe',   short:'the universe',     size_m:8.8e26,   sizeLabel:'8.8×10²⁶ m · 93 Gly',     kind:'cmb', color:C.yellow,
+  fact:'The edge of everything we will ever see.'},
+];
+
+const PLAIN = [
+'a doorway','a bus','a football field','a kilometre walk','a whole city',
+'the drive to the coast','a large country','a planet','a gas giant’s realm','a star',
+'a red giant star','a planet’s orbit','a whole solar system','the Sun’s far frontier',
+'a light-month','nearly a light-year','the gap between stars','a stellar neighborhood',
+'a star-forming region','a spiral arm','a dwarf galaxy','the Milky Way',
+'the space between galaxies','a cluster of galaxies','a supercluster','a cosmic filament',
+'a decent chunk of everything','the observable universe'];
+
+/* ---------- derived data ---------- */
+function fmtRatio(r){
+  if (r >= 10)  return Math.round(r).toLocaleString('en-IN');
+  const s = r.toFixed(1);
+  return s.endsWith('.0') ? s.slice(0,-2) : s;
+}
+function mulberry32(seed){
+  return function(){ seed|=0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed>>>15, 1|seed);
+    t = t + Math.imul(t ^ t>>>7, 61|t) ^ t;
+    return ((t ^ t>>>14) >>> 0) / 4294967296; };
+}
+OBJECTS.forEach((o,i)=>{
+  o.expTarget = exponentForTarget(o.size_m);
+  o.ratioLine = i ? '= ' + fmtRatio(o.size_m / OBJECTS[i-1].size_m) + ' × ' + OBJECTS[i-1].short : '';
+  const rnd = mulberry32(i*7919 + 13);
+  o.ox = (rnd()-0.5) * 0.42;                  // parallax x-offset fraction
+  o.oy = (rnd()-0.5) * 0.2;
+  o.pts = [];
+  const N = {shell:130, cluster:70, arc:90, galaxy:170, web:26, galaxycluster:(o.id==='virgo'?42:18), cmb:190, earth:7}[o.kind] || 0;
+  for (let k=0;k<N;k++){
+    if (o.kind==='galaxy' || o.kind==='twogalaxies'){
+      const arm = k % 2, th = (k/N)*3.4*Math.PI*0.5 + 0.35;
+      const rr = 0.1*Math.exp(0.62*th), a = th + arm*Math.PI + (rnd()-0.5)*0.5;
+      o.pts.push({x:Math.cos(a)*rr, y:Math.sin(a)*rr, s:0.4+rnd()*0.9, c:k%5});
+    } else if (o.kind==='shell'){
+      const a = rnd()*6.2832, rr = 0.74 + rnd()*0.26;
+      o.pts.push({x:Math.cos(a)*rr, y:Math.sin(a)*rr*0.94, s:0.3+rnd()*0.8});
+    } else if (o.kind==='arc'){
+      const a = -0.7 + (k/N)*1.4, rr = 0.9 + (rnd()-0.5)*0.16;
+      o.pts.push({x:Math.sin(a)*rr, y:-Math.cos(a)*rr + 0.62, s:0.3+rnd()*1, c:k%5});
+    } else {
+      const a = rnd()*6.2832, rr = Math.sqrt(rnd());
+      o.pts.push({x:Math.cos(a)*rr, y:Math.sin(a)*rr, s:0.25+rnd()*1, c:k%5, rot:rnd()*3.14});
+    }
+  }
+  if (o.kind==='galaxy' || o.kind==='twogalaxies'){    // normalize spiral to unit radius
+    let m = 0; o.pts.forEach(p=>{ m = Math.max(m, Math.hypot(p.x,p.y)); });
+    o.pts.forEach(p=>{ p.x/=m; p.y/=m; });
+  }
+});
+const EARTH = OBJECTS.find(o=>o.id==='earth');
+
+/* ---------- canvas setup ---------- */
+const canvas = $('#cv'), ctx = canvas.getContext('2d');
+let W = 0, H = 0, dpr = 1, maxScroll = 1;
+function resize(){
+  dpr = Math.min(window.devicePixelRatio || 1, 3);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width  = Math.round(W*dpr);
+  canvas.height = Math.round(H*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  maxScroll = DECADES * PX_PER_DECADE;
+  $('#spacer').style.height = (maxScroll + H) + 'px';
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ---------- starfield background ---------- */
+const STARS = [];
+{ const rnd = mulberry32(42);
+  for (let i=0;i<340;i++) STARS.push({
+    x:rnd(), y:rnd(), z:0.3+rnd()*0.7, s:0.4+rnd()*1.4,
+    th:3.2 + rnd()*4.5, ph:rnd()*6.2832,
+    c:['#e6edf7','#e6edf7','#e6edf7','#6ee7ff','#f0abfc'][Math.floor(rnd()*5)]
+  });
+}
+const FOG = [];
+{ const rnd = mulberry32(7);
+  for (let i=0;i<5;i++) FOG.push({x:rnd(), y:rnd(), r:0.25+rnd()*0.3, c:i%2?'167,139,250':'240,171,252'});
+}
+function hexRGB(h){ return [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)]; }
+function lerpHex(a,b,t){
+  const A = hexRGB(a), B = hexRGB(b);
+  return 'rgb(' + A.map((v,i)=>Math.round(v + (B[i]-v)*t)).join(',') + ')';
+}
+const BG_STOPS = [   // [exponent, topColor, bottomColor]
+  [0,  '#0c1428', '#060a13'],
+  [6,  '#081022', '#05080f'],
+  [12, '#04060d', '#03050a'],
+  [20, '#0a0718', '#05060f'],
+  [24, '#120714', '#07040a'],
+  [27, '#1c0908', '#0b0405'],
+];
+function bgColors(e){
+  for (let i=0;i<BG_STOPS.length-1;i++){
+    const [e0,t0,b0] = BG_STOPS[i], [e1,t1,b1] = BG_STOPS[i+1];
+    if (e <= e1){ const t = clamp((e-e0)/(e1-e0),0,1); return [lerpHex(t0,t1,t), lerpHex(b0,b1,t)]; }
+  }
+  return [BG_STOPS.at(-1)[1], BG_STOPS.at(-1)[2]];
+}
+function drawBG(e, t){
+  const [top, bot] = bgColors(e);
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0, top); g.addColorStop(1, bot);
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+  // galaxy fog, e ≈ 18–24
+  const fog = smooth((e-18)/2) * smooth((24.5-e)/2);
+  if (fog > 0.01){
+    for (const f of FOG){
+      const r = f.r * Math.max(W,H);
+      const rg = ctx.createRadialGradient(f.x*W, f.y*H, 0, f.x*W, f.y*H, r);
+      rg.addColorStop(0, 'rgba(' + f.c + ',' + (0.07*fog).toFixed(3) + ')');
+      rg.addColorStop(1, 'rgba(' + f.c + ',0)');
+      ctx.fillStyle = rg; ctx.fillRect(f.x*W - r, f.y*H - r, r*2, r*2);
+    }
+  }
+  // stars: none indoors, dense in space, sparse at the very end
+  const density = smooth((e-3)/4) * (1 - 0.65*smooth((e-24)/3));
+  if (density > 0.01){
+    for (const s of STARS){
+      let a = clamp((e - s.th)/1.4, 0, 1) * density;
+      if (a <= 0.01) continue;
+      if (!RM) a *= 0.75 + 0.25*Math.sin(t*0.0016*s.z + s.ph);
+      const sx = ((s.x*W + (RM?0:e*26*s.z)) % W + W) % W;
+      ctx.globalAlpha = a;
+      ctx.fillStyle = s.c;
+      ctx.beginPath(); ctx.arc(sx, s.y*H, s.s, 0, 6.2832); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  // CMB warmth at the very end
+  const cmb = smooth((e-25)/2);
+  if (cmb > 0.01){
+    const rg = ctx.createRadialGradient(W/2,H/2, H*0.1, W/2,H/2, Math.max(W,H)*0.75);
+    rg.addColorStop(0, 'rgba(120,30,20,0)');
+    rg.addColorStop(1, 'rgba(190,60,30,' + (0.16*cmb).toFixed(3) + ')');
+    ctx.fillStyle = rg; ctx.fillRect(0,0,W,H);
+  }
+}
+
+/* ---------- object drawing ---------- */
+function rgba(hex, a){ const [r,g,b] = hexRGB(hex); return 'rgba('+r+','+g+','+b+','+a+')'; }
+function dot(x,y,r,color){ ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.fill(); }
+function glowDot(x,y,r,hex,coreA){
+  const g = ctx.createRadialGradient(x,y,0,x,y,r);
+  g.addColorStop(0, rgba(hex, coreA==null?0.9:coreA));
+  g.addColorStop(1, rgba(hex, 0));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.fill();
+}
+function dashedCircle(x,y,r,hex,a,lw){
+  ctx.save();
+  ctx.setLineDash([Math.max(4, r*0.045), Math.max(3, r*0.032)]);
+  ctx.strokeStyle = rgba(hex,a); ctx.lineWidth = lw || Math.max(1.2, r*0.008);
+  ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.stroke();
+  ctx.restore();
+}
+function miniGalaxy(x,y,r,tilt,hex){
+  ctx.save(); ctx.translate(x,y); ctx.rotate(tilt); ctx.scale(1,0.42);
+  const g = ctx.createRadialGradient(0,0,0, 0,0,r);
+  g.addColorStop(0,'rgba(230,237,247,0.9)');
+  g.addColorStop(0.25, rgba(hex,0.5));
+  g.addColorStop(1, rgba(hex,0));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0,0,r,0,6.2832); ctx.fill();
+  ctx.restore();
+}
+const PCOLS = ['#e6edf7','#6ee7ff','#e6edf7','#f0abfc','#fcd34d'];
+
+function drawObject(o, x, y, px, alpha, t){
+  const r = px/2;
+  ctx.globalAlpha = alpha;
+  switch(o.kind){
+  case 'emoji': {
+    ctx.font = px + 'px system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(o.emoji, x, y + px*0.04);
+    break; }
+  case 'spire': {   // Burj Khalifa as a neon spire, base at y + r
+    const bw = px*0.16, base = y + r, tip = y - r;
+    const g = ctx.createLinearGradient(0, tip, 0, base);
+    g.addColorStop(0, rgba(o.color, 0.95)); g.addColorStop(1, rgba('#a78bfa', 0.35));
+    ctx.fillStyle = g;
+    // three telescoping sections
+    ctx.beginPath();
+    ctx.moveTo(x, tip + px*0.06);
+    ctx.lineTo(x + bw*0.16, y - r*0.45); ctx.lineTo(x + bw*0.34, y - r*0.05);
+    ctx.lineTo(x + bw*0.5,  base);       ctx.lineTo(x - bw*0.5,  base);
+    ctx.lineTo(x - bw*0.34, y - r*0.05); ctx.lineTo(x - bw*0.16, y - r*0.45);
+    ctx.closePath(); ctx.fill();
+    // antenna + beacon
+    ctx.strokeStyle = rgba(o.color, 0.9); ctx.lineWidth = Math.max(1, px*0.006);
+    ctx.beginPath(); ctx.moveTo(x, tip + px*0.06); ctx.lineTo(x, tip); ctx.stroke();
+    glowDot(x, tip, Math.max(3, px*0.02), '#fcd34d', 1);
+    // window lights
+    ctx.fillStyle = 'rgba(6,10,19,0.55)';
+    for (let k=1;k<9;k++) ctx.fillRect(x - bw*0.4, tip + (k/9)*(base-tip), bw*0.8, Math.max(1, px*0.004));
+    // ground line
+    ctx.strokeStyle = rgba('#8b98ad', 0.4);
+    ctx.beginPath(); ctx.moveTo(x - px*0.4, base); ctx.lineTo(x + px*0.4, base); ctx.stroke();
+    break; }
+  case 'region': {
+    const g = ctx.createRadialGradient(x,y,r*0.2, x,y,r);
+    g.addColorStop(0, rgba(o.color,0.03)); g.addColorStop(1, rgba(o.color,0.12));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.fill();
+    dashedCircle(x,y,r,o.color,0.75);
+    dot(x,y,Math.max(1.5,r*0.02), rgba(o.color,0.9));
+    break; }
+  case 'earth': {
+    const g = ctx.createRadialGradient(x-r*0.4,y-r*0.4,r*0.1, x,y,r);
+    g.addColorStop(0,'#7dd3fc'); g.addColorStop(0.6,'#1d4ed8'); g.addColorStop(1,'#0c1e5e');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.fill();
+    ctx.save(); ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.clip();
+    ctx.fillStyle = 'rgba(74,222,128,0.55)';
+    for (const p of o.pts){
+      ctx.beginPath();
+      ctx.ellipse(x+p.x*r*0.8, y+p.y*r*0.8, r*(0.14+p.s*0.14), r*(0.08+p.s*0.09), p.rot, 0, 6.2832);
+      ctx.fill();
+    }
+    ctx.restore();
+    ctx.globalAlpha = alpha*0.5; glowDot(x,y,r*1.3,'#6ee7ff',0.0); // subtle halo
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = 'rgba(110,231,255,0.35)'; ctx.lineWidth = Math.max(1,r*0.012);
+    ctx.beginPath(); ctx.arc(x,y,r*1.02,0,6.2832); ctx.stroke();
+    break; }
+  case 'jupiter': {
+    const g = ctx.createRadialGradient(x-r*0.4,y-r*0.4,r*0.1, x,y,r);
+    g.addColorStop(0,'#fde8b0'); g.addColorStop(0.7,'#d9973f'); g.addColorStop(1,'#7a4a1e');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.fill();
+    ctx.save(); ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.clip();
+    for (let k=-3;k<=3;k++){
+      ctx.fillStyle = k%2 ? 'rgba(122,74,30,0.35)' : 'rgba(253,232,176,0.22)';
+      ctx.fillRect(x-r, y + k*r*0.26 - r*0.09, r*2, r*0.18);
+    }
+    ctx.fillStyle = 'rgba(240,120,90,0.75)';
+    ctx.beginPath(); ctx.ellipse(x+r*0.32, y+r*0.3, r*0.16, r*0.1, -0.2, 0, 6.2832); ctx.fill();
+    ctx.restore();
+    break; }
+  case 'orbit': {
+    dashedCircle(x,y,r,o.color,0.7);
+    const cIsSun = o.id === 'au';
+    glowDot(x,y, Math.max(3, r*0.07), cIsSun ? '#fcd34d' : '#6ee7ff', 1);
+    const ang = RM ? -0.7 : t*0.00012 + 2.1;
+    const bx = x + Math.cos(ang)*r, by = y + Math.sin(ang)*r;
+    glowDot(bx, by, Math.max(2.4, r*0.045), cIsSun ? '#6ee7ff' : '#e6edf7', 1);
+    break; }
+  case 'sun': case 'redgiant': {
+    const hot = o.kind==='sun';
+    // once bigger than the screen, dim faster so the glow doesn't wash everything out
+    ctx.globalAlpha = alpha * clamp((2.4 - r/(H/2)*1) / 1.6, 0.12, 1);
+    const halo = ctx.createRadialGradient(x,y,r*0.5, x,y,r*1.8);
+    halo.addColorStop(0, hot ? 'rgba(252,211,77,0.35)' : 'rgba(251,113,60,0.3)');
+    halo.addColorStop(1, 'rgba(252,211,77,0)');
+    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(x,y,r*1.8,0,6.2832); ctx.fill();
+    const g = ctx.createRadialGradient(x,y,0, x,y,r);
+    if (hot){ g.addColorStop(0,'#fffbe8'); g.addColorStop(0.55,'#fcd34d'); g.addColorStop(1,'#b45309'); }
+    else    { g.addColorStop(0,'#ffe4c8'); g.addColorStop(0.45,'#fb923c'); g.addColorStop(1,'#7c2d12'); }
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.fill();
+    break; }
+  case 'solarsystem': {
+    for (const f of [0.16,0.3,0.48,0.72,1]) dashedCircle(x,y,r*f,o.color, f===1?0.65:0.35);
+    glowDot(x,y, Math.max(2.5,r*0.045), '#fcd34d', 1);
+    [0.16,0.3,0.48,0.72,1].forEach((f,i)=>{
+      const a = i*1.7 + 0.6 + (RM?0:t*0.00008*(5-i));
+      glowDot(x+Math.cos(a)*r*f, y+Math.sin(a)*r*f, Math.max(1.6, r*0.018), PCOLS[i%5], 1);
+    });
+    break; }
+  case 'voyager': {
+    const sx = x - r*0.82, sy = y + r*0.34, ex = x + r*0.85, ey = y - r*0.36;
+    dashedCircle(sx,sy, Math.max(4,r*0.07), '#fcd34d', 0.5);
+    glowDot(sx,sy, Math.max(2.5,r*0.03), '#fcd34d', 1);
+    ctx.save();
+    ctx.setLineDash([6,7]); ctx.strokeStyle = rgba(o.color,0.55); ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke();
+    ctx.restore();
+    glowDot(ex,ey, Math.max(5,r*0.06), '#6ee7ff', 1);
+    dot(ex,ey, Math.max(1.6,r*0.012), '#e6edf7');
+    break; }
+  case 'lightring': {
+    [0.4,0.7,1].forEach((f,i)=>{
+      ctx.strokeStyle = rgba(o.color, [0.55,0.34,0.2][i]);
+      ctx.lineWidth = Math.max(1.2, r*0.01);
+      ctx.beginPath(); ctx.arc(x,y,r*f,0,6.2832); ctx.stroke();
+    });
+    glowDot(x,y, Math.max(4,r*0.05), '#fcd34d', 1);
+    break; }
+  case 'shell': {
+    glowDot(x,y, Math.max(3,r*0.04), '#fcd34d', 1);
+    ctx.fillStyle = rgba(o.color, 0.8);
+    for (const p of o.pts){
+      const s = Math.max(0.6, r*0.006*p.s + 0.4);
+      ctx.fillRect(x+p.x*r - s/2, y+p.y*r - s/2, s, s);
+    }
+    break; }
+  case 'binaryline': {
+    const x1 = x - r*0.96, y1 = y + r*0.1, x2 = x + r*0.96, y2 = y - r*0.1;
+    ctx.save();
+    ctx.setLineDash([2,9]); ctx.strokeStyle = rgba(o.color,0.5); ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    ctx.restore();
+    glowDot(x1,y1, Math.max(5,r*0.05), '#fcd34d', 1);
+    glowDot(x2,y2, Math.max(3.5,r*0.03), '#fb7185', 1);
+    break; }
+  case 'cluster': {
+    for (const p of o.pts){
+      ctx.fillStyle = rgba(PCOLS[p.c], 0.9);
+      ctx.beginPath(); ctx.arc(x+p.x*r, y+p.y*r, Math.max(0.7, r*0.012*p.s), 0, 6.2832); ctx.fill();
+    }
+    break; }
+  case 'arc': {
+    for (const p of o.pts){
+      ctx.fillStyle = rgba(PCOLS[p.c], 0.85);
+      ctx.beginPath(); ctx.arc(x+p.x*r, y+p.y*r, Math.max(0.7, r*0.012*p.s), 0, 6.2832); ctx.fill();
+    }
+    break; }
+  case 'galaxy': {
+    ctx.save(); ctx.translate(x,y); ctx.rotate(-0.35); ctx.scale(1,0.42);
+    const halo = ctx.createRadialGradient(0,0,0, 0,0,r);
+    halo.addColorStop(0,'rgba(167,139,250,0.28)'); halo.addColorStop(1,'rgba(167,139,250,0)');
+    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(0,0,r,0,6.2832); ctx.fill();
+    for (const p of o.pts){
+      ctx.fillStyle = rgba(PCOLS[p.c], 0.85);
+      const s = Math.max(0.7, r*0.01*p.s);
+      ctx.fillRect(p.x*r - s/2, p.y*r - s/2, s, s);
+    }
+    const core = ctx.createRadialGradient(0,0,0, 0,0,r*0.24);
+    core.addColorStop(0,'rgba(255,250,230,0.95)'); core.addColorStop(1,'rgba(252,211,77,0)');
+    ctx.fillStyle = core; ctx.beginPath(); ctx.arc(0,0,r*0.24,0,6.2832); ctx.fill();
+    ctx.restore();
+    break; }
+  case 'twogalaxies': {
+    miniGalaxy(x - r*0.92, y + r*0.12, r*0.24, -0.4, '#a78bfa');
+    miniGalaxy(x + r*0.92, y - r*0.12, r*0.34,  0.5, '#f0abfc');
+    ctx.save();
+    ctx.setLineDash([2,10]); ctx.strokeStyle = rgba(o.color,0.4); ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.moveTo(x-r*0.62, y+r*0.08); ctx.lineTo(x+r*0.6, y-r*0.08); ctx.stroke();
+    ctx.restore();
+    break; }
+  case 'galaxycluster': {
+    for (const p of o.pts) miniGalaxy(x+p.x*r*0.92, y+p.y*r*0.92, r*(0.05+p.s*0.06), p.rot, [ '#6ee7ff','#a78bfa','#f0abfc'][p.c%3]);
+    break; }
+  case 'web': {
+    ctx.strokeStyle = rgba('#a78bfa', 0.3); ctx.lineWidth = 1;
+    for (let i=0;i<o.pts.length;i++) for (let j=i+1;j<o.pts.length;j++){
+      const a = o.pts[i], b = o.pts[j];
+      if (Math.hypot(a.x-b.x, a.y-b.y) < 0.52){
+        ctx.beginPath(); ctx.moveTo(x+a.x*r, y+a.y*r); ctx.lineTo(x+b.x*r, y+b.y*r); ctx.stroke();
+      }
+    }
+    for (const p of o.pts) glowDot(x+p.x*r, y+p.y*r, Math.max(2, r*0.03*p.s), p.c%2?'#6ee7ff':'#f0abfc', 0.9);
+    break; }
+  case 'cmb': {
+    const g = ctx.createRadialGradient(x,y,r*0.1, x,y,r);
+    g.addColorStop(0,'rgba(60,18,20,0.9)'); g.addColorStop(0.75,'rgba(120,35,22,0.85)'); g.addColorStop(1,'rgba(180,70,35,0.7)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.fill();
+    for (const p of o.pts){
+      ctx.fillStyle = p.c%2 ? 'rgba(240,140,80,0.3)' : 'rgba(40,10,12,0.4)';
+      ctx.beginPath(); ctx.arc(x+p.x*r*0.97, y+p.y*r*0.97, Math.max(1, r*0.035*p.s), 0, 6.2832); ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(252,211,77,0.5)'; ctx.lineWidth = Math.max(1.2, r*0.006);
+    ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.stroke();
+    break; }
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ---------- labels: at most 2 per frame (closest to 30% viewport) ---------- */
+function wrapText(text, maxW, font){
+  ctx.font = font;
+  const words = text.split(' '), lines = [];
+  let line = '';
+  for (const w of words){
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxW && line){ lines.push(line); line = w; }
+    else line = test;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+function drawLabel(o, slotY, alpha, showFact, objX, objY, objR){
+  const pad = 16, lx = Math.max(18, W*0.035);
+  const fs  = W < 640 ? 12 : 14;
+  const maxW = Math.min(360, W*0.6);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  let y = slotY;
+  ctx.globalAlpha = alpha;
+  // name
+  ctx.font = '700 ' + (fs+4) + 'px ui-monospace, Menlo, monospace';
+  ctx.fillStyle = o.color;
+  ctx.shadowColor = o.color; ctx.shadowBlur = 12;
+  ctx.fillText(o.name.toUpperCase(), lx, y);
+  ctx.shadowBlur = 0;
+  y += fs + 10;
+  // size
+  ctx.font = fs + 'px ui-monospace, Menlo, monospace';
+  ctx.fillStyle = '#e6edf7';
+  ctx.fillText(o.sizeLabel, lx, y);
+  y += fs + 6;
+  // ratio to previous
+  if (o.ratioLine){
+    ctx.fillStyle = '#8b98ad';
+    ctx.fillText(o.ratioLine, lx, y);
+    y += fs + 6;
+  }
+  // fact
+  if (showFact && o.fact){
+    ctx.fillStyle = 'rgba(230,237,247,0.85)';
+    const lines = wrapText(o.fact, maxW, 'italic ' + fs + 'px ui-monospace, Menlo, monospace');
+    for (const ln of lines){ ctx.fillText(ln, lx, y + 2); y += fs + 5; }
+  }
+  // connector to the object
+  const cy = slotY + (y - slotY)/2, cx = lx + 6;
+  const dx = objX - cx, dy = objY - cy, d = Math.hypot(dx,dy);
+  if (d > objR + 90){
+    const ex = objX - dx/d*objR*0.72, ey = objY - dy/d*objR*0.72;
+    ctx.strokeStyle = rgba(o.color, 0.22*alpha); ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(lx + Math.min(180, maxW*0.6), cy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ---------- per-frame scene ---------- */
+function drawScene(exponent, t){
+  drawBG(exponent, t);
+  const vis = [];
+  for (const o of OBJECTS){
+    const px = pxSize(o.size_m, exponent, H);
+    if (culled(px, H)) continue;
+    const a = fadeAlpha(px/H);
+    if (a <= 0.005) continue;
+    vis.push({o, px, a});
+  }
+  vis.sort((p,q) => q.px - p.px);       // biggest (farthest along) first
+  for (const v of vis){
+    const r = v.px/H;
+    const cen = clamp(1.15 - r, 0, 1);  // big objects drift to dead-center
+    v.x = W/2 + v.o.ox * W * cen;
+    v.y = H/2 + v.o.oy * H * cen;
+    drawObject(v.o, v.x, v.y, v.px, v.a, t);
+  }
+  // pick the two objects closest (log-wise) to 30% of viewport
+  const labelable = vis.filter(v => v.px/H > 0.05 && v.px/H < 1.6)
+    .sort((p,q) => Math.abs(Math.log10(p.px/(0.3*H))) - Math.abs(Math.log10(q.px/(0.3*H))))
+    .slice(0,2);
+  labelable.forEach((v,i)=>{
+    const rr = v.px/H;
+    const showFact = i===0 && rr >= 0.15 && rr <= 0.7;
+    const slotY = i===0 ? H*0.6 : H*0.1;
+    drawLabel(v.o, slotY, v.a, showFact, v.x, v.y, v.px/2);
+  });
+}
+
+/* ---------- HUD (ruler + plain words + strip + rail) ---------- */
+const SUP = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻','.':'·'};
+const sup = s => String(s).split('').map(c => SUP[c] || c).join('');
+function expLabel(e){
+  const r = Math.round(e*10)/10;
+  const s = (Math.abs(r - Math.round(r)) < 0.001) ? String(Math.round(r)) : r.toFixed(1);
+  return '10' + sup(s) + ' m';
+}
+const scaleVal = $('#scaleVal'), plainText = $('#plainText'), stripInner = $('#stripInner');
+const TICK_SP = 40;
+{ let html = '';
+  for (let i=0;i<=DECADES;i++){
+    const major = i%3===0;
+    html += '<div class="tick' + (major?' major':'') + '" style="left:' + (i*TICK_SP) + 'px">'
+          + (major ? '<span>' + (i===0 ? '1 m' : '10' + sup(i)) + '</span>' : '') + '</div>';
+  }
+  stripInner.innerHTML = html;
+}
+const rail = $('#rail');
+const railBtns = [];
+{ const landmark = {};
+  for (const o of OBJECTS){
+    const d = Math.round(o.expTarget);
+    if (!landmark[d]) landmark[d] = o;
+  }
+  for (let d=0; d<=DECADES; d++){
+    const b = document.createElement('button');
+    const o = landmark[d];
+    if (o) b.className = 'mark';
+    b.setAttribute('aria-label', '10^' + d + ' metres' + (o ? ' — ' + o.name : ''));
+    b.title = expLabel(d).replace(' m',' m') + (o ? ' · ' + o.name : '');
+    const target = (o ? o.expTarget : d) / DECADES;
+    b.addEventListener('click', () => {
+      window.scrollTo({top: target * maxScroll, behavior: RM ? 'auto' : 'smooth'});
+    });
+    rail.appendChild(b); railBtns.push(b);
+  }
+}
+let lastHudE = -99, lastCur = -1;
+function updateHUD(exponent){
+  if (Math.abs(exponent - lastHudE) > 0.004){
+    lastHudE = exponent;
+    scaleVal.textContent = '1 screen ≈ ' + expLabel(exponent);
+    plainText.textContent = 'about the size of ' + PLAIN[clamp(Math.round(exponent),0,DECADES)];
+    stripInner.style.transform = 'translateX(' + (120 - exponent*TICK_SP).toFixed(1) + 'px)';
+    $('#intro').style.opacity = String(clamp(1 - exponent/0.35, 0, 1));
+  }
+  const cur = clamp(Math.round(exponent), 0, DECADES);
+  if (cur !== lastCur){
+    if (railBtns[lastCur]) railBtns[lastCur].classList.remove('cur');
+    railBtns[cur].classList.add('cur');
+    lastCur = cur;
+  }
+}
+
+/* ---------- main loop: read scrollY only inside rAF ---------- */
+let forcedProgress = null;   // set by ?at / ?jump for reproducible screenshots
+function currentExponent(){
+  const progress = forcedProgress !== null
+    ? forcedProgress
+    : clamp((window.scrollY || 0) / maxScroll, 0, 1);
+  return progress * DECADES;
+}
+function engageScroll(){     // first user input converts forced progress to a real scroll pos
+  if (forcedProgress === null) return;
+  const y = forcedProgress * maxScroll;
+  forcedProgress = null;
+  window.scrollTo(0, y);
+}
+['wheel','touchstart','keydown','pointerdown'].forEach(ev =>
+  window.addEventListener(ev, engageScroll, {passive:true}));
+function frame(t){
+  const e = currentExponent();
+  drawScene(e, t);
+  updateHUD(e);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------- URL flags: ?at=<0..1>  ?jump=<id>  ?test ---------- */
+const Q = new URLSearchParams(location.search);
+if (Q.has('at')){
+  forcedProgress = clamp(parseFloat(Q.get('at')) || 0, 0, 1);
+}
+if (Q.has('jump')){
+  const o = OBJECTS.find(x => x.id === Q.get('jump'));
+  if (o) forcedProgress = o.expTarget / DECADES;
+}
+
+/* ---------- ?test in-page assertion harness ---------- */
+if (Q.has('test')){
+  const results = [];
+  const T = (name, ok, note) => results.push({name, ok: !!ok, note: note || ''});
+  const vh = 800;
+
+  // a. at exponent 0, a 1 m object is exactly one viewport tall
+  T('1m fills viewport at e=0', Math.abs(pxSize(1, 0, vh) - vh) < 1e-9);
+
+  // b. monotonic: px strictly decreases as exponent grows
+  { let prev = Infinity, ok = true;
+    for (let e=0; e<=DECADES; e+=0.5){
+      const p = pxSize(EARTH.size_m, e, vh);
+      if (p >= prev){ ok = false; break; }
+      prev = p;
+    }
+    T('px strictly decreases with exponent', ok);
+  }
+
+  // c. exponentForTarget round-trips: jump lands Earth at ~0.3*vh
+  { const e = exponentForTarget(EARTH.size_m);
+    const p = pxSize(EARTH.size_m, e, vh);
+    T('jump target lands at 30% viewport', Math.abs(p - 0.3*vh) < 0.003*vh, 'px=' + p.toFixed(2));
+  }
+
+  // d. cull bounds honored
+  T('cull bounds', culled(0.4, vh) && culled(vh*4 + 1, vh) && !culled(0.3*vh, vh) && !culled(0.6, vh) && !culled(vh*3.9, vh));
+
+  // e. fade range sits inside cull range
+  T('fade curve inside cull range',
+    fadeAlpha(0.019) === 0 && fadeAlpha(3.01) === 0 &&
+    Math.abs(fadeAlpha(0.15) - 1) < 1e-9 && Math.abs(fadeAlpha(0.9) - 1) < 1e-9 &&
+    fadeAlpha(0.05) > 0 && fadeAlpha(0.05) < 1 && fadeAlpha(2) > 0 && fadeAlpha(2) < 1);
+
+  // f. objects sorted ascending by size
+  T('objects sorted by size', OBJECTS.every((o,i) => i===0 || o.size_m > OBJECTS[i-1].size_m));
+
+  // g. decade coverage: every integer exponent 0..27 has >= 1 visible object
+  { const empty = [];
+    for (let e=0; e<=DECADES; e++){
+      const any = OBJECTS.some(o => {
+        const p = pxSize(o.size_m, e, vh);
+        return p > 0.02*vh && p < 3*vh;
+      });
+      if (!any) empty.push(e);
+    }
+    T('decade coverage 0..27', empty.length === 0, empty.length ? 'empty: ' + empty.join(',') : '');
+  }
+
+  // h. ruler text: exponent 9 renders as 10⁹ m
+  { updateHUD(9);
+    const ok = scaleVal.textContent.includes('10⁹ m');
+    T('ruler text at e=9 shows 10⁹ m', ok, scaleVal.textContent);
+  }
+
+  // i. every rail/jump target maps inside [0,1] scroll progress
+  T('all jump targets in range', OBJECTS.every(o => o.expTarget >= 0 && o.expTarget <= DECADES));
+
+  const passed = results.filter(r => r.ok).length;
+  const summary = passed === results.length
+    ? 'TESTS PASS ' + passed + '/' + results.length
+    : 'TESTS FAIL ' + passed + '/' + results.length + ' — ' +
+      results.filter(r => !r.ok).map(r => r.name + (r.note ? ' (' + r.note + ')' : '')).join('; ');
+  document.title = summary;
+  const out = $('#testout');
+  out.style.display = 'block';
+  out.textContent = summary + '\n' + results.map(r => (r.ok ? '✓ ' : '✗ ') + r.name).join('\n');
+}
+</script>
+</body>
+</html>
