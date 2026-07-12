@@ -181,7 +181,7 @@ main{
    ================================================================ */
 
 /* ---------- config ---------- */
-const NASA_KEY = 'DEMO_KEY'; // swap for a personal key any time
+const NASA_KEY = (function(){ var k = '__NASA_KEY__'; return k.indexOf('__') === 0 ? 'DEMO_KEY' : k; })(); // injected from a GitHub Actions secret at deploy; DEMO_KEY fallback for local/file:// use
 const API = {
   iss:    'https://api.wheretheiss.at/v1/satellites/25544',
   issFut: ts => 'https://api.wheretheiss.at/v1/satellites/25544/positions?timestamps=' + ts.join(',') + '&units=kilometers',
