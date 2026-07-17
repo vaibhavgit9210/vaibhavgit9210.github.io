@@ -181,6 +181,9 @@ function drawSaitama(pose,cx,cy,s,facing,rot,opts){
   capsule(J.elB[0],J.elB[1],J.haB[0],J.haB[1],aw*0.85,aw*0.75,suit);
   disc(J.haB[0],J.haB[1],aw*1.35,red);
   disc(J.haB[0]-facing*aw*0.4,J.haB[1]-aw*0.4,aw*0.5,'#f26a60'); // glove highlight
+  // NECK
+  capsule(J.chest[0],J.chest[1],J.neck[0],J.neck[1],5*s,4*s,suit);
+  capsule(J.neck[0],J.neck[1],J.head[0],J.head[1],3.6*s,3.2*s,skin);
   // HEAD (bald)
   const hd=J.head, hr=13*s;
   disc(hd[0],hd[1],hr,skin);
@@ -241,6 +244,9 @@ function drawGojo(pose,cx,cy,s,facing,rot,opts){
   capsule(J.elB[0],J.elB[1],J.haB[0],J.haB[1],aw*0.85,aw*0.72,jak);
   // fingers sign for cast/charge, else hand
   disc(J.haB[0],J.haB[1],aw*0.85,skin);
+  // NECK
+  capsule(J.chest[0],J.chest[1],J.neck[0],J.neck[1],5*s,4*s,jak);
+  capsule(J.neck[0],J.neck[1],J.head[0],J.head[1],3.4*s,3*s,skin);
   // high collar
   g.fillStyle=jakHi;
   g.beginPath();
@@ -450,18 +456,30 @@ function shotFaceoff(u){
 }
 const CAP1=H-104, CAP2=H-80, CAP3=H-58, CAPS=H-72;
 function shotDash(u){
-  worldBase(u>0.85?(u-0.85)/0.15*0.8:0);
+  worldBase(u>0.85?(u-0.85)/0.15*0.4:0);
   once('dash',whoosh);
   const meet=easeIn(u);
   const gx=lerp(gPos,428,meet), sx=lerp(sPos,532,meet);
   withCam(480,300,1.15,u>0.85?8:0,()=>{
-    // dash trails
-    for(let i=1;i<=4;i++){ g.globalAlpha=0.12*(1-i/5); drawGojo(DASH,gx-40*i,GND-58,2.0,1,0.15,{}); }
-    for(let i=1;i<=4;i++){ g.globalAlpha=0.12*(1-i/5); drawSaitama(DASH,sx+40*i,GND-58,2.0,-1,-0.15,{}); }
+    // additive speed streaks trailing each fighter
+    const sa=Math.min(1,u*3);
+    g.save(); g.globalCompositeOperation='lighter';
+    for(let i=0;i<10;i++){
+      const yy=GND-118+srnd(i)*104, ln=50+srnd(i+3)*90, off=20+srnd(i+9)*50, lw=1.5+srnd(i+7)*2;
+      g.lineWidth=lw;
+      g.strokeStyle=`rgba(150,200,255,${((0.10+srnd(i+5)*0.14)*sa).toFixed(3)})`;
+      g.beginPath(); g.moveTo(gx-off,yy); g.lineTo(gx-off-ln,yy); g.stroke();
+      g.strokeStyle=`rgba(255,215,150,${((0.10+srnd(i+6)*0.14)*sa).toFixed(3)})`;
+      g.beginPath(); g.moveTo(sx+off,yy+5); g.lineTo(sx+off+ln,yy+5); g.stroke();
+    }
+    g.restore();
+    // tight afterimages (fade fast, converge as they meet)
+    for(let i=3;i>=1;i--){ g.globalAlpha=0.15*(1-i/4); drawGojo(DASH,gx-26*i*(1-meet*0.5),GND-58,2.0,1,0.15,{}); }
+    for(let i=3;i>=1;i--){ g.globalAlpha=0.15*(1-i/4); drawSaitama(DASH,sx+26*i*(1-meet*0.5),GND-58,2.0,-1,-0.15,{}); }
     g.globalAlpha=1;
     drawGojo(DASH,gx,GND-58,2.0,1,0.12,{});
     drawSaitama(DASH,sx,GND-58,2.0,-1,-0.12,{});
-    if(u>0.82){ const st=(u-0.82)/0.18; disc(480,GND-70,10+st*40,`rgba(255,255,255,${(0.9*(1-st)).toFixed(3)})`); sparks(480,GND-70,st,20,'rgba(200,230,255,A)'); }
+    if(u>0.82){ const st=(u-0.82)/0.18; disc(480,GND-70,10+st*40,`rgba(255,255,255,${(0.9*(1-st)).toFixed(3)})`); shockRing(480,GND-70,20+st*130,0.7*(1-st),'rgba(200,230,255,A)',0.6); sparks(480,GND-70,st,20,'rgba(200,230,255,A)'); }
   });
 }
 function shotExchange(u){
@@ -470,13 +488,35 @@ function shotExchange(u){
   const beat=u*3; const bi=Math.floor(beat); const bt=beat-bi;
   const attackerGojo = bi%2===0;
   const hitAt=0.55;
-  withCam(480,300,1.28,bt<hitAt+0.12&&bt>hitAt?6:0,()=>{
-    let gp,sp;
-    if(attackerGojo){ gp=bt<hitAt?lp(DASH,PUNCH,easeIn(bt/hitAt)):lp(PUNCH,DASH,(bt-hitAt)/(1-hitAt)); sp=lp(IDLE,BLOCK,clamp(bt/hitAt,0,1)); }
-    else { sp=bt<hitAt?lp(DASH,PUNCH,easeIn(bt/hitAt)):lp(PUNCH,DASH,(bt-hitAt)/(1-hitAt)); gp=lp(IDLE,BLOCK,clamp(bt/hitAt,0,1)); }
-    drawGojo(gp,422,GND-58,2.0,1,0,{aura:attackerGojo,auraI:0.3});
-    drawSaitama(sp,538,GND-58,2.0,-1,0,{});
-    if(Math.abs(bt-hitAt)<0.1){ const st=Math.abs(bt-hitAt)/0.1; const hx=attackerGojo?512:448,hy=GND-96; disc(hx,hy,16*(1-st),`rgba(255,240,200,${(0.9*(1-st)).toFixed(3)})`); sparks(hx,hy,st+0.05,16,'rgba(255,220,150,A)'); once('ex'+bi,()=>hit(false)); }
+  const hitW=Math.abs(bt-hitAt)<0.1;
+  const lunge=(bt<hitAt?easeIn(bt/hitAt):1-easeOut((bt-hitAt)/(1-hitAt)))*26;   // step in, settle back
+  const recoil=bt>hitAt?easeOut(clamp((bt-hitAt)/0.25,0,1))*14:0;               // defender knocked back
+  const zoom=1.28+(hitW?0.05*(1-Math.abs(bt-hitAt)/0.1):0);
+  withCam(480,300,zoom,hitW?6:0,()=>{
+    let gp,sp,gx=422,sx=538;
+    if(attackerGojo){
+      gp=bt<hitAt?lp(DASH,PUNCH,easeIn(bt/hitAt)):lp(PUNCH,DASH,(bt-hitAt)/(1-hitAt));
+      sp=lp(IDLE,BLOCK,clamp(bt/hitAt,0,1));
+      gx+=lunge; sx+=recoil;
+    } else {
+      sp=bt<hitAt?lp(DASH,PUNCH,easeIn(bt/hitAt)):lp(PUNCH,DASH,(bt-hitAt)/(1-hitAt));
+      gp=lp(IDLE,BLOCK,clamp(bt/hitAt,0,1));
+      sx-=lunge; gx-=recoil;
+    }
+    // anime smear arc along the fist path just before impact
+    if(bt>hitAt-0.18&&bt<hitAt+0.04){
+      const sm=clamp(1-Math.abs(bt-(hitAt-0.07))/0.11,0,1);
+      const ax=attackerGojo?gx:sx, dir=attackerGojo?1:-1;
+      g.fillStyle=`rgba(240,248,255,${(0.28*sm).toFixed(3)})`;
+      g.beginPath();
+      g.moveTo(ax+dir*10,GND-120);
+      g.quadraticCurveTo(ax+dir*72,GND-132,ax+dir*106,GND-96);
+      g.quadraticCurveTo(ax+dir*66,GND-106,ax+dir*10,GND-102);
+      g.closePath(); g.fill();
+    }
+    drawGojo(gp,gx,GND-58,2.0,1,0,{aura:attackerGojo,auraI:0.3});
+    drawSaitama(sp,sx,GND-58,2.0,-1,0,{});
+    if(hitW){ const st=Math.abs(bt-hitAt)/0.1; const hx=attackerGojo?512:448,hy=GND-96; disc(hx,hy,16*(1-st),`rgba(255,240,200,${(0.9*(1-st)).toFixed(3)})`); shockRing(hx,hy,10+st*60,0.6*(1-st),'rgba(255,240,200,A)',0.8); sparks(hx,hy,st+0.05,16,'rgba(255,220,150,A)'); once('ex'+bi,()=>hit(false)); }
   });
 }
 function shotClose(u){
@@ -559,9 +599,11 @@ function sa_punch(u){
     shockRing(sPos-20,GND-96,20+sw*300,0.6*(1-uu),'rgba(255,255,255,A)',0.5);
     // Saitama fully extended
     drawSaitama(PUNCH,sPos,GND-58,2.0,-1,0,{serious:true});
-    // Gojo flung left
+    // Gojo flung left, afterimages trailing back toward the impact
     const gx=lerp(470,90,easeOut(uu)), gy=GND-58-Math.sin(uu*Math.PI)*70;
     const rot=-uu*4;
+    for(let i=2;i>=1;i--){ g.globalAlpha=0.15*(1-i/3); drawGojo(STAGGER,gx+34*i*(1-uu*0.5),gy+6*i,2.0,1,rot+0.4*i,{}); }
+    g.globalAlpha=1;
     drawGojo(STAGGER,gx,gy,2.0,1,rot,{});
     if(uu>0.7){ dust(120,GND-30,(uu-0.7)/0.3,60,80); }
   });
@@ -601,12 +643,14 @@ function go_charge(u){
   // Gojo floats up, blindfold off, charges hollow purple
   const rise=easeOut(clamp(u*1.4,0,1));
   const gy=GND-58-rise*48;
-  withCam(430,332,1.32+u*0.12,u>0.9?3:0,()=>{
+  const grow=clamp((u-0.35)/0.5,0,1);
+  // world dims as the sphere builds
+  if(grow>0){ g.fillStyle=`rgba(8,5,22,${(0.35*grow).toFixed(3)})`; g.fillRect(0,0,W,H); }
+  withCam(430,285,1.32+u*0.06,u>0.9?3:0,()=>{
     drawSaitama(lp(IDLE,BLOCK,0.4),620,GND-58,2.0,-1,0,{serious:true});
-    drawGojo(u<0.4?FLOAT:CHARGE,gPos,gy,2.0,1,0,{aura:true,auraI:0.5+u*0.5,eyes:u>0.25});
-    // sphere between hands
-    const hx=gPos+30, hy=gy-26;
-    const grow=clamp((u-0.35)/0.5,0,1);
+    drawGojo(lp(FLOAT,CHARGE,ease(clamp((u-0.28)/0.24,0,1))),gPos,gy,2.0,1,0,{aura:true,auraI:0.5+u*0.5,eyes:u>0.25});
+    // sphere between hands (CHARGE hands meet at local [0,-26] · s=2)
+    const hx=gPos,hy=gy-52;
     if(grow>0){
       // blue orb + red orb converge into purple
       const conv=clamp((u-0.45)/0.3,0,1);
@@ -640,27 +684,52 @@ function go_beam(u){
     const bx=lerp(hx,980,reach);
     const bw=26+Math.sin(clock*30)*4;
     g.save(); g.globalCompositeOperation='lighter';
+    // outer glow sheath
+    const og=g.createLinearGradient(0,hy-bw*2.4,0,hy+bw*2.4);
+    og.addColorStop(0,'rgba(122,47,240,0)'); og.addColorStop(0.5,'rgba(150,80,255,0.35)'); og.addColorStop(1,'rgba(122,47,240,0)');
+    g.fillStyle=og; g.fillRect(hx,hy-bw*2.4,bx-hx,bw*4.8);
     const bg=g.createLinearGradient(0,hy-bw,0,hy+bw);
     bg.addColorStop(0,'rgba(122,47,240,0)'); bg.addColorStop(0.5,`rgba(200,150,255,${(0.95).toFixed(2)})`); bg.addColorStop(1,'rgba(122,47,240,0)');
     g.fillStyle=bg; g.fillRect(hx,hy-bw,bx-hx,bw*2);
     // white core
     g.fillStyle='rgba(255,245,255,0.95)'; g.fillRect(hx,hy-bw*0.3,bx-hx,bw*0.6);
-    // muzzle glow
+    // energy motes spiraling along the beam
+    for(let i=0;i<14;i++){ const p=(clock*2.2+srnd(i))%1; const px=lerp(hx,bx,p); const py=hy+Math.sin(p*14+clock*8+i)*bw*0.9; g.fillStyle=`rgba(220,180,255,${(0.7*(1-p*0.4)).toFixed(3)})`; g.fillRect(px,py,3,3); }
+    // muzzle glow + pulsing ring
     const mg=g.createRadialGradient(hx,hy,2,hx,hy,50); mg.addColorStop(0,'rgba(230,210,255,0.95)'); mg.addColorStop(1,'rgba(178,107,255,0)'); g.fillStyle=mg; g.beginPath(); g.arc(hx,hy,50,0,7); g.fill();
+    const rp=(clock*2)%1;
+    shockRing(hx,hy,10+rp*70,0.5*(1-rp),'rgba(200,150,255,A)',1);
     g.restore();
-    // trench glow on ground
-    g.fillStyle=`rgba(178,107,255,${(0.4*reach).toFixed(3)})`; g.fillRect(hx,GND-4,bx-hx,10);
-    // Saitama blasted down into crater
-    if(reach>0.5){ const st=(reach-0.5)/0.5; const sx=lerp(620,660,st), sy=GND-58+st*30; drawSaitama(STAGGER,sx,sy,2.0,-1,st*1.5,{serious:true}); dust(650,GND-20,st,50,50); }
+    // Saitama swallowed by the beam — tumbling knockback with afterimages
+    if(reach>0.45){
+      const st=clamp((reach-0.45)/0.55,0,1);
+      const sx=lerp(620,690,easeOut(st)), sy=GND-58+st*28, rot=st*5.5;
+      for(let i=2;i>=1;i--){ g.globalAlpha=0.16*(1-i/3); drawSaitama(STAGGER,sx-36*i*st,sy-8*i*st,2.0,-1,rot-0.5*i*st,{serious:true}); }
+      g.globalAlpha=1;
+      drawSaitama(STAGGER,sx,sy,2.0,-1,rot,{serious:true});
+      const fl=1-clamp((reach-0.45)/0.3,0,1);
+      if(fl>0){ disc(640,GND-100,20+(1-fl)*90,`rgba(230,200,255,${(0.85*fl).toFixed(3)})`); shockRing(640,GND-100,30+(1-fl)*170,0.8*fl,'rgba(200,150,255,A)',0.7); }
+      dust(690,GND-16,st,60,50);
+    }
     else drawSaitama(lp(BLOCK,STAGGER,0.5),620,GND-58,2.0,-1,0,{serious:true});
   });
+  // purple flash washing the frame at the moment of firing
+  if(uu<0.22){ g.fillStyle=`rgba(178,107,255,${(0.3*(1-uu/0.22)).toFixed(3)})`; g.fillRect(0,0,W,H); }
   caption('HOLLOW PURPLE.',clamp(uu*2-0.4,0,1)*0.85,CAP1,28,'rgba(200,150,255,A)');
 }
 function go_ko(u){
   worldBase(0,0.08);
   withCam(560,300,1.2,0,()=>{
-    // glowing trench
-    g.fillStyle=`rgba(178,107,255,${(0.2+0.1*Math.sin(clock*2)).toFixed(3)})`; g.fillRect(500,GND-3,460,8);
+    // scorched trench carved by the beam, still glowing
+    const tg=g.createLinearGradient(480,0,960,0);
+    tg.addColorStop(0,'rgba(178,107,255,0)');
+    tg.addColorStop(0.5,`rgba(178,107,255,${(0.3+0.1*Math.sin(clock*2)).toFixed(3)})`);
+    tg.addColorStop(1,'rgba(178,107,255,0.06)');
+    g.fillStyle='#05060c';
+    g.beginPath(); g.moveTo(490,GND+1); g.quadraticCurveTo(700,GND+18,960,GND+8); g.lineTo(960,GND+1); g.closePath(); g.fill();
+    g.fillStyle=tg;
+    g.beginPath(); g.moveTo(490,GND+1); g.quadraticCurveTo(700,GND+14,960,GND+6); g.lineTo(960,GND+1); g.closePath(); g.fill();
+    for(let i=0;i<10;i++){ const p=(clock*0.5+srnd(i))%1; const ex=520+srnd(i+3)*380; g.fillStyle=`rgba(210,160,255,${(0.5*(1-p)).toFixed(3)})`; g.fillRect(ex,GND+4-p*30,2,2); }
     dust(660,GND-16,clamp(1-u,0,1),50,36);
     g.fillStyle='#0a0d15'; for(let i=0;i<8;i++){ g.fillRect(600+srnd(i)*140,GND-6-srnd(i+2)*8,8+srnd(i+3)*12,8); }
     drawSaitama(KO,660,GND-12,2.0,-1,0,{});
