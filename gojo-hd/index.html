@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE STRONGEST — HD CUT · VK Arcade</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #04050a; height: 100%; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { display: block; width: min(100vw, calc(100vh * (960 / 540))); height: auto; cursor: pointer; }
+  a.back {
+    position: fixed; top: 10px; left: 12px; z-index: 10;
+    font: 11px ui-monospace, Menlo, Monaco, "Courier New", monospace;
+    letter-spacing: 1px; color: rgba(150, 165, 190, 0.55); text-decoration: none;
+  }
+  a.back:hover { color: rgba(190, 210, 235, 0.9); }
+</style>
+</head>
+<body>
+<a class="back" href="../arcade/">&larr; ARCADE</a>
+<canvas id="cv" width="960" height="540"></canvas>
+<script>
+'use strict';
+(() => {
+const W = 960, H = 540, BAR = 54;
+const cv = document.getElementById('cv');
+const g = cv.getContext('2d');
+
+// ---------- timing constants ----------
+const T_FALL = 4.8, T_PLUNGE = 0.45, T_IMPACT = 2.2, T_AFTER = 2.4;
+const GROUND = 444;          // street level y
+const CX = 480;              // impact / crater center x
+const SHOCK_PERIOD = 1.2;    // aura-farming shockwave interval (s)
+const SHOCK_LIFE = 1.5;      // ring lifetime (s)
+
+// ---------- deterministic hash ----------
+function hs(n) { const v = Math.sin(n * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); }
+function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+function smooth(v) { v = clamp(v, 0, 1); return v * v * (3 - 2 * v); }
+function lerp(a, b, k) { return a + (b - a) * k; }
+
+// ---------- state machine ----------
+let state = 'title', st = 0, gt = 0;
+let dust = [], debris = [], embers = [], wisps = [];
+
+function enter(s) {
+  state = s; st = 0;
+  if (s === 'fall') { wisps = []; dust = []; debris = []; embers = []; }
+  if (s === 'impact') { spawnImpact(); sfxImpact(); }
+  if (s === 'reveal') { sfxShimmer(); }
+}
+
+// ---------- city geometry (precomputed, deterministic) ----------
+const farB = [], nearB = [];
+(function buildCity() {
+  let x = -30, i = 0;
+  while (x < 1000) {
+    const w = 34 + hs(i * 7 + 1) * 52, h = 52 + hs(i * 7 + 2) * 130;
+    farB.push({ x, w, h }); x += w + 2 + hs(i * 7 + 3) * 10; i++;
+  }
+  x = -40; i = 100;
+  while (x < 1010) {
+    const w = 48 + hs(i * 7 + 1) * 74, h = 84 + hs(i * 7 + 2) * 190;
+    const b = { x, w, h, win: [], beacon: h > 220 };
+    // sparse warm windows
+    const cols = Math.floor(w / 11), rows = Math.floor(h / 14);
+    for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++) {
+      const k = hs(i * 991 + c * 31 + r * 7);
+      if (k > 0.86) b.win.push({ x: x + 5 + c * 11, y: GROUND - h + 8 + r * 14, warm: k < 0.965, a: 0.25 + hs(i + c + r) * 0.5 });
+    }
+    nearB.push(b); x += w + 3 + hs(i * 7 + 3) * 14; i++;
+  }
+})();
+
+// ---------- GOJO : parameterized vector character ----------
+// design space: feet at (0,0), up = -y, total height ~160 units. scale=1 -> 160px tall.
+function drawGojo(o) {
+  const s = o.scale || 1, pose = o.pose || 'stand', raise = o.raise == null ? 1 : o.raise;
+  const t = o.t || 0, fl = o.flutter || 0, sil = o.sil || null;
+  const C = c => sil || c;
+  const JK = '#181e3c', JKD = '#0d1126', PANT = '#131730', SHOE = '#07080f';
+  const SKIN = '#eedcc9', HAIR = '#f3f8ff', HAIRSH = '#c2d2e6', BAND = '#0a0c15';
+
+  g.save();
+  g.translate(o.x, o.y);
+  // pivot rotation around body center (0,-80)
+  g.translate(0, -80 * s); g.rotate(o.rot || 0); g.translate(0, 80 * s);
+  g.scale(s, s);
+  g.lineCap = 'round'; g.lineJoin = 'round';
+
+  // ---- pose joints ----
+  let legL, legR, armL, armR, pocketR = false;
+  if (pose === 'fall') {
+    const sw = Math.sin(t * 3.1) * 1.6;
+    legL = [-7, -78, -10 + sw * 0.4, -40, -13, -5];
+    legR = [7, -78, 11, -42, 10 + sw * 0.5, -1];
+    armL = [-15, -125, -20 - sw * 0.5, -103, -22, -84];
+    armR = [15, -125, 20, -106, 11, -82]; pocketR = true; // hand in pocket
+  } else { // stand / sign
+    legL = [-7, -78, -8.5, -40, -10.5, -2];
+    legR = [7, -78, 8.5, -40, 10.5, -2];
+    armL = [-15, -125, -18, -103, -19, -83];
+    if (pose === 'sign') {
+      const k = smooth(raise);
+      armR = [15, -125, lerp(18, 21, k), lerp(-103, -104, k), lerp(19, 8.5, k), lerp(-83, -136, k)];
+    } else {
+      armR = [15, -125, 18, -103, 19, -83];
+    }
+  }
+
+  function limb(j, w, col) {
+    g.strokeStyle = C(col); g.lineWidth = w;
+    g.beginPath(); g.moveTo(j[0], j[1]); g.lineTo(j[2], j[3]); g.lineTo(j[4], j[5]); g.stroke();
+  }
+  function hand(x, y, r) { g.fillStyle = C(SKIN); g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
+
+  // ---- blindfold tails (behind head, fluttering) ----
+  g.strokeStyle = C(BAND); g.lineWidth = 3;
+  for (let i = 0; i < 2; i++) {
+    const ph = t * 6 + i * 2.1, amp = 4 + fl * 14;
+    g.beginPath(); g.moveTo(9, -148);
+    g.bezierCurveTo(16 + i * 3, -150 - fl * 8 + Math.sin(ph) * 3,
+      22 + i * 5 + Math.sin(ph * 0.8) * amp * 0.4, -146 - fl * 22 + Math.cos(ph) * amp * 0.5,
+      26 + i * 8 + Math.sin(ph) * amp, -140 - fl * 34 - i * 5 + Math.cos(ph * 1.3) * amp);
+    g.stroke();
+  }
+
+  // ---- legs ----
+  limb(legL, 9, PANT); limb(legR, 9, PANT);
+  // shoes
+  g.fillStyle = C(SHOE);
+  g.beginPath(); g.ellipse(legL[4] - 1.5, legL[5] + 1.5, 6, 3.2, -0.12, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(legR[4] + 1.5, legR[5] + 1.5, 6, 3.2, 0.12, 0, 7); g.fill();
+
+  // ---- back arm (right unless sign pose puts it front) ----
+  const rFront = (pose === 'sign' && raise > 0.05);
+  if (!rFront) { limb(armR, 7, JKD); if (!pocketR) hand(armR[4], armR[5], 3.1); }
+
+  // ---- torso : dark navy high-collar zip jacket ----
+  const tg = g.createLinearGradient(-16, -128, 18, -78);
+  tg.addColorStop(0, C('#212752')); tg.addColorStop(0.45, C(JK)); tg.addColorStop(1, C('#0b0e20'));
+  g.fillStyle = tg;
+  g.beginPath();
+  g.moveTo(-16, -126);
+  g.quadraticCurveTo(-15, -100, -12, -78);
+  g.lineTo(12, -78);
+  g.quadraticCurveTo(15, -100, 16, -126);
+  g.quadraticCurveTo(8, -132, 0, -132);
+  g.quadraticCurveTo(-8, -132, -16, -126);
+  g.closePath(); g.fill();
+  if (!sil) {
+    // sheen highlight along left edge
+    g.strokeStyle = 'rgba(150,185,235,0.22)'; g.lineWidth = 1.3;
+    g.beginPath(); g.moveTo(-14.5, -124); g.quadraticCurveTo(-13.8, -100, -11, -80); g.stroke();
+    // zipper line
+    g.strokeStyle = 'rgba(175,200,235,0.16)'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(0, -130); g.lineTo(0, -80); g.stroke();
+    // hem
+    g.fillStyle = 'rgba(5,7,16,0.6)'; g.fillRect(-12, -81, 24, 3);
+  }
+
+  // ---- head ----
+  g.fillStyle = C(SKIN);
+  g.beginPath(); g.ellipse(0, -146, 10.2, 12, 0, 0, 7); g.fill();
+  if (!sil) {
+    // jaw shade
+    g.fillStyle = 'rgba(160,120,95,0.18)';
+    g.beginPath(); g.ellipse(0, -139, 8.5, 5.5, 0, 0.4, Math.PI - 0.4); g.fill();
+    // nose hint
+    g.strokeStyle = 'rgba(120,80,60,0.35)'; g.lineWidth = 0.9;
+    g.beginPath(); g.moveTo(0.8, -143.6); g.lineTo(1.8, -141.6); g.stroke();
+    // smirk
+    g.strokeStyle = '#8a5f53'; g.lineWidth = 1.05;
+    g.beginPath(); g.moveTo(-0.5, -139.4); g.quadraticCurveTo(2.6, -137.8, 5.4, -139.9); g.stroke();
+  }
+
+  // ---- blindfold band across the eyes (wraps head) ----
+  g.save();
+  g.beginPath(); g.ellipse(0, -146, 10.9, 12.6, 0, 0, 7); g.clip();
+  g.fillStyle = C(BAND); g.fillRect(-12, -153, 24, 7.6);
+  if (!sil) { g.fillStyle = 'rgba(180,200,235,0.10)'; g.fillRect(-12, -153, 24, 1.2); }
+  g.restore();
+
+  // ---- white spiky swept-up hair ----
+  // scalp cap
+  g.fillStyle = C(HAIR);
+  g.beginPath(); g.ellipse(0, -152.5, 10.6, 7.6, 0, Math.PI, 0); g.fill();
+  // spikes (individual triangles, swept upward)
+  const SP = [ // [angle rad from head-top center, length, sweep]
+    [-2.75, 13, -3], [-2.45, 17, -2], [-2.1, 21, -1], [-1.8, 24, 0.5],
+    [-1.5, 26, 1.5], [-1.2, 24, 2.5], [-0.9, 21, 3.5], [-0.6, 17, 4],
+    [-0.35, 13, 4.5], [-2.95, 9, -3.5], [-0.15, 9, 5]
+  ];
+  const hcx = 0, hcy = -151;
+  for (let i = 0; i < SP.length; i++) {
+    const [a, len, swp] = SP[i];
+    const wob = fl ? Math.sin(t * 7 + i * 1.7) * fl * 2.2 : 0;
+    const bx1 = hcx + Math.cos(a - 0.17) * 9, by1 = hcy + Math.sin(a - 0.17) * 8;
+    const bx2 = hcx + Math.cos(a + 0.17) * 9, by2 = hcy + Math.sin(a + 0.17) * 8;
+    const tx = hcx + Math.cos(a) * (9 + len) + swp + wob, ty = hcy + Math.sin(a) * (8 + len) - fl * 6;
+    g.fillStyle = C(HAIR);
+    g.beginPath(); g.moveTo(bx1, by1);
+    g.quadraticCurveTo((bx1 + tx) / 2 + swp * 0.4, (by1 + ty) / 2, tx, ty);
+    g.quadraticCurveTo((bx2 + tx) / 2 + swp * 0.4, (by2 + ty) / 2, bx2, by2);
+    g.closePath(); g.fill();
+    if (!sil && i % 2 === 0) { // shaded inner spike
+      g.fillStyle = HAIRSH;
+      g.beginPath(); g.moveTo(bx1 * 0.7 + bx2 * 0.3, by1 * 0.7 + by2 * 0.3);
+      g.lineTo(lerp(bx2, tx, 0.75) + 0.5, lerp(by2, ty, 0.75));
+      g.lineTo(bx2, by2); g.closePath(); g.fill();
+    }
+  }
+  // two short fringe strands over the band
+  g.fillStyle = C(HAIR);
+  g.beginPath(); g.moveTo(-7, -152); g.quadraticCurveTo(-8.6, -149, -7.8, -146.2); g.lineTo(-5.4, -151); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(5.2, -152.3); g.quadraticCurveTo(6.8, -149.5, 6.2, -146.8); g.lineTo(7.8, -151.4); g.closePath(); g.fill();
+
+  // ---- high collar (over jaw sides) ----
+  g.fillStyle = C(JK);
+  g.beginPath();
+  g.moveTo(-9.5, -128); g.lineTo(-8.5, -137.6); g.quadraticCurveTo(0, -135.2, 8.5, -137.6);
+  g.lineTo(9.5, -128); g.closePath(); g.fill();
+  if (!sil) {
+    g.strokeStyle = 'rgba(160,190,235,0.20)'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(-8.5, -137.4); g.quadraticCurveTo(0, -135, 8.5, -137.4); g.stroke();
+  }
+
+  // ---- front arm ----
+  limb(armL, 7, JK); hand(armL[4], armL[5], 3.1);
+  if (rFront) {
+    limb(armR, 7, JK);
+    // hand + two-finger jujutsu sign
+    const hx = armR[4], hy = armR[5], k = smooth(raise);
+    g.fillStyle = C(SKIN);
+    g.beginPath(); g.arc(hx, hy, 3.4, 0, 7); g.fill();
+    if (k > 0.55) {
+      g.strokeStyle = C(SKIN); g.lineWidth = 1.9;
+      g.beginPath(); g.moveTo(hx - 1.1, hy - 2); g.lineTo(hx - 1.6, hy - 11); g.stroke();
+      g.beginPath(); g.moveTo(hx + 1.4, hy - 2); g.lineTo(hx + 1.8, hy - 10.4); g.stroke();
+    }
+  }
+  g.restore();
+}
+
+// ---------- text helper ----------
+function txt(s, x, y, o = {}) {
+  g.save();
+  const size = o.size || 14, ls = o.ls == null ? 4 : o.ls;
+  if ('letterSpacing' in g) g.letterSpacing = ls + 'px';
+  g.font = (o.weight || 600) + ' ' + size + "px -apple-system,'Segoe UI',Helvetica,Arial,sans-serif";
+  g.fillStyle = o.color || 'rgba(214,228,240,0.85)';
+  g.textAlign = o.align || 'center';
+  g.fillText(s, x + (o.align === 'center' || !o.align ? ls / 2 : 0), y);
+  if ('letterSpacing' in g) g.letterSpacing = '0px';
+  g.restore();
+}
+
+// ---------- scene: storm free-fall backdrop ----------
+function lightningAt(t) { // deterministic flash envelope during fall
+  const F = [[1.05, 1], [2.32, 0.85], [3.65, 1]];
+  let v = 0;
+  for (const [ft, amp] of F) {
+    const a = t - ft;
+    if (a > 0 && a < 0.3) v = Math.max(v, amp * (a < 0.05 ? a / 0.05 : 1 - (a - 0.05) / 0.25));
+  }
+  return v;
+}
+
+function drawCloudLayer(seed, speed, alpha, sc, t, flash) {
+  const n = 8;
+  for (let i = 0; i < n; i++) {
+    const cx = hs(seed + i * 13) * 1200 - 120;
+    let cy = (hs(seed + i * 13 + 5) * 760 - t * speed) % 760;
+    cy = ((cy % 760) + 760) % 760 - 110;
+    const puffs = 5;
+    for (let p = 0; p < puffs; p++) {
+      const px = cx + (hs(seed + i * 91 + p * 17) - 0.5) * 190 * sc;
+      const py = cy + (hs(seed + i * 91 + p * 17 + 3) - 0.5) * 60 * sc;
+      const r = (34 + hs(seed + i + p * 7) * 55) * sc;
+      const gr = g.createRadialGradient(px, py, 0, px, py, r);
+      const lit = alpha * (1 + flash * 2.2);
+      gr.addColorStop(0, 'rgba(96,114,148,' + (lit * 0.85).toFixed(3) + ')');
+      gr.addColorStop(1, 'rgba(70,84,116,0)');
+      g.fillStyle = gr;
+      g.beginPath(); g.arc(px, py, r, 0, 7); g.fill();
+    }
+  }
+}
+
+function drawFallScene() {
+  const t = st, flash = lightningAt(t);
+  // sky gradient
+  const sky = g.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#070a16'); sky.addColorStop(0.6, '#0a0e1e'); sky.addColorStop(1, '#0d1224');
+  g.fillStyle = sky; g.fillRect(0, 0, W, H);
+  if (flash > 0) { g.fillStyle = 'rgba(190,205,240,' + (flash * 0.18).toFixed(3) + ')'; g.fillRect(0, 0, W, H); }
+
+  // distant city glow far below, intensifying as he falls
+  const prog = t / T_FALL;
+  const glow = g.createRadialGradient(CX, H + 210, 40, CX, H + 210, 460);
+  glow.addColorStop(0, 'rgba(255,176,110,' + (0.10 + prog * 0.26).toFixed(3) + ')');
+  glow.addColorStop(1, 'rgba(255,160,90,0)');
+  g.fillStyle = glow; g.fillRect(0, H - 260, W, 260);
+
+  // parallax storm clouds rushing upward
+  drawCloudLayer(11, 130, 0.13, 1.5, t, flash);
+  drawCloudLayer(47, 280, 0.19, 1.15, t, flash);
+
+  // rain streaks (relative upward motion)
+  g.strokeStyle = 'rgba(158,180,205,0.16)'; g.lineWidth = 1;
+  for (let i = 0; i < 80; i++) {
+    const x = hs(i * 3) * W;
+    let y = (hs(i * 3 + 1) * 620 - t * (400 + hs(i) * 380)) % 620;
+    y = ((y % 620) + 620) % 620 - 40;
+    g.globalAlpha = 0.35 + hs(i * 5) * 0.5;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + 1.5, y + 20 + hs(i) * 14); g.stroke();
+  }
+  g.globalAlpha = 1;
+
+  // ---- Gojo mid-air, aura farming ----
+  const gx = CX + Math.sin(t * 0.8) * 12;
+  const gy = 322 + Math.sin(t * 1.1) * 8;
+  const rot = 0.06 + Math.sin(t * 0.62) * 0.1;
+  const sc = 0.88;
+
+  g.save();
+  g.globalCompositeOperation = 'lighter';
+  // AURA: layered radial gradients, cyan core, flickering
+  const flick = 0.82 + 0.18 * Math.sin(t * 9.3) * Math.sin(t * 5.1 + 1.7);
+  const acx = gx, acy = gy - 92 * sc;
+  let a1 = g.createRadialGradient(acx, acy, 4, acx, acy, 130);
+  a1.addColorStop(0, 'rgba(143,233,255,' + (0.30 * flick).toFixed(3) + ')');
+  a1.addColorStop(0.4, 'rgba(110,200,255,' + (0.13 * flick).toFixed(3) + ')');
+  a1.addColorStop(1, 'rgba(90,170,255,0)');
+  g.fillStyle = a1; g.beginPath(); g.arc(acx, acy, 130, 0, 7); g.fill();
+  let a2 = g.createRadialGradient(acx, acy, 2, acx, acy, 58);
+  a2.addColorStop(0, 'rgba(200,246,255,' + (0.34 * flick).toFixed(3) + ')');
+  a2.addColorStop(1, 'rgba(140,225,255,0)');
+  g.fillStyle = a2; g.beginPath(); g.arc(acx, acy, 58, 0, 7); g.fill();
+
+  // SHOCKWAVES — sound-barrier rings every SHOCK_PERIOD
+  for (let k = 0; k < 2; k++) {
+    const born = Math.floor((t - 0.5) / SHOCK_PERIOD - k) * SHOCK_PERIOD + 0.5;
+    const age = t - born;
+    if (age < 0 || age > SHOCK_LIFE) continue;
+    const u = age / SHOCK_LIFE;
+    const r = 26 + u * 400, al = 0.38 * (1 - u);
+    g.lineWidth = 3.4 - 2.2 * u;
+    g.strokeStyle = 'rgba(210,245,255,' + al.toFixed(3) + ')';
+    g.beginPath(); g.ellipse(acx, acy, r, r * 0.78, 0, 0, 7); g.stroke();
+    g.lineWidth = (3.4 - 2.2 * u) * 2.2;
+    g.strokeStyle = 'rgba(120,215,255,' + (al * 0.5).toFixed(3) + ')';
+    g.beginPath(); g.ellipse(acx, acy, r + 4, (r + 4) * 0.78, 0, 0, 7); g.stroke();
+  }
+
+  // rising energy wisps
+  for (const p of wisps) {
+    const al = p.life * 0.5;
+    g.fillStyle = 'rgba(150,230,255,' + al.toFixed(3) + ')';
+    g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.fill();
+  }
+  g.restore();
+
+  // motion-blur ghost trails (he falls, world rushes up)
+  drawGojo({ x: gx, y: gy - 26, scale: sc, rot, pose: 'fall', t, flutter: 1, sil: 'rgba(120,200,255,0.07)' });
+  drawGojo({ x: gx, y: gy - 13, scale: sc, rot, pose: 'fall', t, flutter: 1, sil: 'rgba(140,215,255,0.13)' });
+  // lightning rim light
+  if (flash > 0.05) drawGojo({ x: gx - 2.5, y: gy, scale: sc, rot, pose: 'fall', t, flutter: 1, sil: 'rgba(225,238,255,' + (flash * 0.55).toFixed(3) + ')' });
+  drawGojo({ x: gx, y: gy, scale: sc, rot, pose: 'fall', t, flutter: 1 });
+
+  // altitude caption
+  const alt = Math.max(120, Math.round((3000 - Math.pow(prog, 1.15) * 2880) / 10) * 10);
+  txt('SHIBUYA — ' + alt + ' M', 84, 92, { size: 11, ls: 3, color: 'rgba(160,178,200,0.6)', align: 'left', weight: 500 });
+}
+
+// ---------- scene: night city street ----------
+function drawCityScene(t, o = {}) {
+  const flash = o.flash || 0;
+  const sky = g.createLinearGradient(0, 0, 0, GROUND);
+  sky.addColorStop(0, '#05060f'); sky.addColorStop(0.72, '#0a0f20'); sky.addColorStop(1, '#101830');
+  g.fillStyle = sky; g.fillRect(-20, -20, W + 40, GROUND + 20);
+  if (flash > 0) { g.fillStyle = 'rgba(200,214,245,' + (flash * 0.22).toFixed(3) + ')'; g.fillRect(-20, -20, W + 40, GROUND + 20); }
+
+  // slow storm clouds up top
+  for (let i = 0; i < 7; i++) {
+    const px = ((hs(i * 19) * 1300 + t * (5 + i)) % 1300) - 170;
+    const py = 30 + hs(i * 19 + 2) * 90;
+    const r = 90 + hs(i * 19 + 4) * 90;
+    const gr = g.createRadialGradient(px, py, 0, px, py, r);
+    gr.addColorStop(0, 'rgba(70,84,116,' + (0.16 + flash * 0.3).toFixed(3) + ')');
+    gr.addColorStop(1, 'rgba(70,84,116,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(px, py, r, 0, 7); g.fill();
+  }
+
+  // far skyline
+  g.fillStyle = '#0a0f1e';
+  for (const b of farB) g.fillRect(b.x, GROUND - b.h - 34, b.w, b.h + 34);
+  // near skyline
+  for (const b of nearB) {
+    g.fillStyle = '#0c1226';
+    g.fillRect(b.x, GROUND - b.h, b.w, b.h);
+    g.fillStyle = 'rgba(150,175,215,0.06)';
+    g.fillRect(b.x, GROUND - b.h, 2, b.h); // edge catch-light
+    for (const wn of b.win) {
+      g.fillStyle = wn.warm ? 'rgba(255,196,120,' + wn.a.toFixed(2) + ')' : 'rgba(150,215,255,' + (wn.a * 0.8).toFixed(2) + ')';
+      g.fillRect(wn.x, wn.y, 3.4, 4.6);
+    }
+    if (b.beacon) {
+      const bl = 0.5 + 0.5 * Math.sin(t * 2.6 + b.x * 0.13);
+      if (bl > 0.45) {
+        const bx = b.x + b.w / 2, by = GROUND - b.h - 4;
+        const gr = g.createRadialGradient(bx, by, 0, bx, by, 9);
+        gr.addColorStop(0, 'rgba(255,70,70,' + (bl * 0.85).toFixed(2) + ')');
+        gr.addColorStop(1, 'rgba(255,60,60,0)');
+        g.fillStyle = gr; g.beginPath(); g.arc(bx, by, 9, 0, 7); g.fill();
+        g.fillStyle = 'rgba(255,120,110,' + bl.toFixed(2) + ')'; g.fillRect(bx - 1, by - 1, 2, 2);
+      }
+    }
+  }
+
+  // wet asphalt
+  const rd = g.createLinearGradient(0, GROUND, 0, H);
+  rd.addColorStop(0, '#0b0e1a'); rd.addColorStop(1, '#05060c');
+  g.fillStyle = rd; g.fillRect(-20, GROUND, W + 40, H - GROUND + 20);
+  g.fillStyle = 'rgba(170,195,230,0.10)'; g.fillRect(-20, GROUND, W + 40, 1.2);
+  // window reflections on wet street
+  g.save(); g.globalAlpha = 0.5;
+  for (let bi = 0; bi < nearB.length; bi++) {
+    const b = nearB[bi];
+    for (let wi = 0; wi < b.win.length; wi += 3) {
+      const wn = b.win[wi];
+      const len = 10 + hs(wn.x) * 26;
+      const gr = g.createLinearGradient(0, GROUND + 2, 0, GROUND + 2 + len);
+      const col = wn.warm ? '255,190,120' : '150,210,255';
+      gr.addColorStop(0, 'rgba(' + col + ',0.14)'); gr.addColorStop(1, 'rgba(' + col + ',0)');
+      g.fillStyle = gr; g.fillRect(wn.x, GROUND + 2, 3, len);
+    }
+  }
+  g.restore();
+
+  // rain falling
+  if (!o.noRain) {
+    g.lineWidth = 1;
+    for (let i = 0; i < 70; i++) {
+      const sp = 460 + hs(i) * 420;
+      const x = hs(i * 3) * (W + 60) - 30 - t * 26 % 30;
+      let y = (hs(i * 3 + 1) * 640 + t * sp) % 640;
+      y = ((y % 640) + 640) % 640 - 60;
+      g.strokeStyle = 'rgba(160,182,210,' + (0.05 + hs(i * 5) * 0.13).toFixed(3) + ')';
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x - 4, y + 20); g.stroke();
+    }
+  }
+}
+
+// ---------- crater ----------
+function drawCrater(glow) {
+  // scorched ground
+  const sg = g.createRadialGradient(CX, GROUND + 6, 6, CX, GROUND + 6, 160);
+  sg.addColorStop(0, 'rgba(2,3,7,0.9)'); sg.addColorStop(1, 'rgba(2,3,7,0)');
+  g.fillStyle = sg; g.beginPath(); g.ellipse(CX, GROUND + 6, 160, 26, 0, 0, 7); g.fill();
+  // bowl
+  g.fillStyle = '#04050b';
+  g.beginPath(); g.ellipse(CX, GROUND + 4, 74, 13, 0, 0, 7); g.fill();
+  // rim highlight
+  g.strokeStyle = 'rgba(150,180,220,0.20)'; g.lineWidth = 1.6;
+  g.beginPath(); g.ellipse(CX, GROUND + 2, 76, 13.5, 0, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
+  // raised rim chunks
+  g.fillStyle = '#0d1122';
+  for (let i = 0; i < 9; i++) {
+    const a = Math.PI + (i / 8) * Math.PI, r = 74 + hs(i * 31) * 8;
+    const x = CX + Math.cos(a) * r * (i < 5 ? 1 : -1) * 0.9, y = GROUND + 2 + Math.sin(a) * 4 - hs(i) * 3;
+    const s2 = 3 + hs(i * 7) * 5;
+    g.beginPath(); g.moveTo(x - s2, y + 3); g.lineTo(x - s2 * 0.2, y - s2); g.lineTo(x + s2, y + 3); g.closePath(); g.fill();
+  }
+  // radiating cracks
+  g.strokeStyle = 'rgba(16,22,38,0.9)'; g.lineWidth = 2;
+  for (let i = 0; i < 7; i++) {
+    const a = 0.25 + (i / 7) * (Math.PI - 0.5) + hs(i * 13) * 0.2;
+    const dir = i % 2 ? 1 : -1;
+    const x1 = CX + Math.cos(a) * 70 * dir, x2 = CX + Math.cos(a) * (120 + hs(i) * 70) * dir;
+    g.beginPath(); g.moveTo(x1, GROUND + 4 + Math.sin(a) * 6);
+    g.lineTo((x1 + x2) / 2 + hs(i * 5) * 10 - 5, GROUND + 7 + Math.sin(a) * 9);
+    g.lineTo(x2, GROUND + 8 + Math.sin(a) * 12); g.stroke();
+  }
+  // cyan residual glow
+  if (glow > 0.01) {
+    g.save(); g.globalCompositeOperation = 'lighter';
+    const cg = g.createRadialGradient(CX, GROUND + 2, 2, CX, GROUND + 2, 105);
+    cg.addColorStop(0, 'rgba(130,225,255,' + (glow * 0.30).toFixed(3) + ')');
+    cg.addColorStop(1, 'rgba(110,210,255,0)');
+    g.fillStyle = cg; g.beginPath(); g.ellipse(CX, GROUND + 2, 105, 30, 0, 0, 7); g.fill();
+    g.restore();
+  }
+}
+
+function drawEmbers() {
+  g.save(); g.globalCompositeOperation = 'lighter';
+  for (const e of embers) {
+    const fl = 0.55 + 0.45 * Math.sin(gt * 7 + e.ph);
+    const al = clamp(e.life, 0, 1) * fl * 0.8;
+    const gr = g.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.r * 3);
+    gr.addColorStop(0, 'rgba(170,238,255,' + al.toFixed(3) + ')');
+    gr.addColorStop(1, 'rgba(140,225,255,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(e.x, e.y, e.r * 3, 0, 7); g.fill();
+  }
+  g.restore();
+}
+
+function drawDust(fade) {
+  for (const p of dust) {
+    const al = clamp(p.life, 0, 1) * fade * 0.5;
+    if (al <= 0.004) continue;
+    const gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+    gr.addColorStop(0, 'rgba(38,44,62,' + al.toFixed(3) + ')');
+    gr.addColorStop(0.7, 'rgba(30,35,52,' + (al * 0.7).toFixed(3) + ')');
+    gr.addColorStop(1, 'rgba(26,30,46,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.fill();
+  }
+}
+
+// ---------- impact spawn ----------
+function spawnImpact() {
+  dust = []; debris = []; embers = [];
+  for (let i = 0; i < 62; i++) {
+    const a = Math.random() * Math.PI; // upward half
+    const sp = 40 + Math.random() * 150;
+    dust.push({
+      x: CX + (Math.random() - 0.5) * 90, y: GROUND + 2 - Math.random() * 8,
+      vx: Math.cos(a) * sp * (Math.random() < 0.5 ? 1 : -1) * 0.6,
+      vy: -Math.abs(Math.sin(a)) * sp * (0.8 + Math.random() * 0.9),
+      r: 12 + Math.random() * 26, life: 1, decay: 0.16 + Math.random() * 0.14
+    });
+  }
+  for (let i = 0; i < 34; i++) {
+    debris.push({
+      x: CX + (Math.random() - 0.5) * 50, y: GROUND - Math.random() * 6,
+      vx: (Math.random() - 0.5) * 420, vy: -(120 + Math.random() * 330),
+      sz: 1.4 + Math.random() * 3, rot: Math.random() * 7, vr: (Math.random() - 0.5) * 9, life: 1
+    });
+  }
+  for (let i = 0; i < 42; i++) {
+    embers.push({
+      x: CX + (Math.random() - 0.5) * 170, y: GROUND + 4 - Math.random() * 26,
+      vy: -(7 + Math.random() * 26), dx: Math.random() * 7,
+      r: 0.7 + Math.random() * 1.3, ph: Math.random() * 7, life: 1.4 + Math.random() * 2
+    });
+  }
+}
+
+// ---------- update ----------
+function update(dt) {
+  gt += dt; st += dt;
+  if (state === 'fall') {
+    // spawn rising aura wisps around him
+    const gx = CX + Math.sin(st * 0.8) * 12, gy = 322 + Math.sin(st * 1.1) * 8 - 92 * 0.88;
+    for (let i = 0; i < 2; i++) {
+      wisps.push({
+        x: gx + (Math.random() - 0.5) * 72, y: gy + 20 + Math.random() * 90,
+        vx: (Math.random() - 0.5) * 14, vy: -(45 + Math.random() * 70),
+        r: 1 + Math.random() * 2.2, life: 1
+      });
+    }
+    for (let i = wisps.length - 1; i >= 0; i--) {
+      const p = wisps[i];
+      p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt * 1.4;
+      if (p.life <= 0) wisps.splice(i, 1);
+    }
+    setWind(0.05 + 0.24 * (st / T_FALL), 300 + 1000 * (st / T_FALL));
+    if (st >= T_FALL) enter('plunge');
+  } else if (state === 'plunge') {
+    setWind(0.36, 1600);
+    if (st >= T_PLUNGE) enter('impact');
+  } else if (state === 'impact' || state === 'aftermath' || state === 'reveal') {
+    setWind(Math.max(0.02, 0.2 * (1 - (state === 'impact' ? st : 3) / 1.4)), 500);
+    for (const p of dust) {
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vx *= (1 - 0.9 * dt); p.vy *= (1 - 1.1 * dt); p.vy -= 14 * dt; // buoyant drift up
+      p.r += 9 * dt; p.life -= dt * p.decay * (state === 'aftermath' ? 2.6 : state === 'reveal' ? 4 : 1);
+    }
+    for (let i = debris.length - 1; i >= 0; i--) {
+      const d = debris[i];
+      d.x += d.vx * dt; d.y += d.vy * dt; d.vy += 560 * dt; d.rot += d.vr * dt; d.life -= dt * 0.4;
+      if (d.y > GROUND + 8 || d.life <= 0) debris.splice(i, 1);
+    }
+    for (let i = embers.length - 1; i >= 0; i--) {
+      const e = embers[i];
+      e.y += e.vy * dt; e.x += Math.sin(gt * 1.3 + e.ph) * e.dx * dt; e.life -= dt * 0.4;
+      if (e.life <= 0) {
+        if (state === 'reveal' || state === 'aftermath') { // keep embers alive in later scenes
+          e.x = CX + (Math.random() - 0.5) * 170; e.y = GROUND + 2; e.life = 1.2 + Math.random() * 2;
+        } else embers.splice(i, 1);
+      }
+    }
+    if (state === 'impact' && st >= T_IMPACT) enter('aftermath');
+    else if (state === 'aftermath' && st >= T_AFTER) enter('reveal');
+  }
+}
+
+// ---------- render ----------
+function render() {
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = '#04050a'; g.fillRect(0, 0, W, H);
+  g.save();
+
+  // camera shake (impact)
+  if (state === 'impact') {
+    const amp = 15 * Math.pow(Math.max(0, 1 - st / 1.05), 2);
+    const f = Math.floor(gt * 88);
+    g.translate((hs(f) - 0.5) * 2 * amp, (hs(f + 999) - 0.5) * 2 * amp);
+  }
+
+  if (state === 'title') renderTitle();
+  else if (state === 'fall') drawFallScene();
+  else if (state === 'plunge') renderPlunge();
+  else if (state === 'impact') renderImpact();
+  else if (state === 'aftermath') renderAftermath();
+  else if (state === 'reveal') renderReveal();
+
+  g.restore();
+
+  // cinematic vignette
+  const vg = g.createRadialGradient(CX, H / 2, H * 0.42, CX, H / 2, H * 0.95);
+  vg.addColorStop(0, 'rgba(0,0,8,0)'); vg.addColorStop(1, 'rgba(0,0,8,0.5)');
+  g.fillStyle = vg; g.fillRect(0, 0, W, H);
+
+  // letterbox bars
+  g.fillStyle = '#000';
+  g.fillRect(0, 0, W, BAR); g.fillRect(0, H - BAR, W, BAR);
+}
+
+function renderTitle() {
+  drawCityScene(gt * 0.4, { flash: lightningAt(gt % 5.2) * 0.5 });
+  g.fillStyle = 'rgba(3,4,9,0.62)'; g.fillRect(0, 0, W, H);
+  txt('THE STRONGEST', CX, 244, { size: 34, ls: 12, weight: 600, color: 'rgba(226,236,248,0.94)' });
+  g.fillStyle = 'rgba(140,160,190,0.4)'; g.fillRect(CX - 130, 262, 260, 1);
+  txt('HD CUT — A JUJUTSU KAISEN PIECE', CX, 288, { size: 11, ls: 5, weight: 500, color: 'rgba(150,170,198,0.72)' });
+  const pulse = 0.35 + 0.3 * (0.5 + 0.5 * Math.sin(gt * 2.4));
+  txt('CLICK TO BEGIN', CX, 396, { size: 12, ls: 6, weight: 500, color: 'rgba(190,210,235,' + pulse.toFixed(2) + ')' });
+}
+
+function renderPlunge() {
+  drawCityScene(gt);
+  const k = st / T_PLUNGE;
+  const hy = 30 + k * k * (GROUND - 30);
+  g.save(); g.globalCompositeOperation = 'lighter';
+  // streak trail
+  const tr = g.createLinearGradient(CX, hy - 190, CX, hy);
+  tr.addColorStop(0, 'rgba(140,225,255,0)');
+  tr.addColorStop(0.7, 'rgba(160,232,255,0.45)');
+  tr.addColorStop(1, 'rgba(240,252,255,0.95)');
+  g.fillStyle = tr; g.fillRect(CX - 3, hy - 190, 6, 190);
+  // aura sheath
+  const au = g.createLinearGradient(CX, hy - 160, CX, hy);
+  au.addColorStop(0, 'rgba(110,205,255,0)'); au.addColorStop(1, 'rgba(120,215,255,0.28)');
+  g.fillStyle = au; g.fillRect(CX - 11, hy - 160, 22, 160);
+  // head glow
+  const hg = g.createRadialGradient(CX, hy, 1, CX, hy, 34);
+  hg.addColorStop(0, 'rgba(255,255,255,0.95)'); hg.addColorStop(0.35, 'rgba(170,235,255,0.5)');
+  hg.addColorStop(1, 'rgba(140,225,255,0)');
+  g.fillStyle = hg; g.beginPath(); g.arc(CX, hy, 34, 0, 7); g.fill();
+  g.restore();
+}
+
+function renderImpact() {
+  drawCityScene(gt, { flash: Math.max(0, 0.5 - st) * 0.5 });
+  drawCrater(clamp(1 - st * 0.25, 0.35, 1));
+
+  g.save(); g.globalCompositeOperation = 'lighter';
+  // dome of light
+  const domeA = Math.max(0, 1 - st / 0.9);
+  if (domeA > 0) {
+    const dr = 40 + st * 260;
+    const dm = g.createRadialGradient(CX, GROUND, 4, CX, GROUND, dr);
+    dm.addColorStop(0, 'rgba(210,245,255,' + (domeA * 0.5).toFixed(3) + ')');
+    dm.addColorStop(0.6, 'rgba(140,220,255,' + (domeA * 0.22).toFixed(3) + ')');
+    dm.addColorStop(1, 'rgba(120,210,255,0)');
+    g.fillStyle = dm; g.beginPath(); g.arc(CX, GROUND, dr, Math.PI, 0); g.fill();
+  }
+  // expanding ground shockwave rings
+  const RT = [0.02, 0.14, 0.32];
+  for (let i = 0; i < RT.length; i++) {
+    const a = st - RT[i];
+    if (a < 0) continue;
+    const r = a * 620, al = 0.5 * Math.max(0, 1 - a / 1.15);
+    if (al <= 0) continue;
+    g.lineWidth = 2.6 - i * 0.5;
+    g.strokeStyle = 'rgba(205,242,255,' + al.toFixed(3) + ')';
+    g.beginPath(); g.ellipse(CX, GROUND + 2, r, r * 0.2, 0, 0, 7); g.stroke();
+  }
+  g.restore();
+
+  // debris
+  g.fillStyle = '#161c30';
+  for (const d of debris) {
+    g.save(); g.translate(d.x, d.y); g.rotate(d.rot);
+    g.fillRect(-d.sz, -d.sz * 0.7, d.sz * 2, d.sz * 1.4);
+    g.restore();
+  }
+
+  drawDust(1);
+  drawEmbers();
+
+  // white flash frames
+  if (st < 0.1) { g.fillStyle = 'rgba(245,250,255,' + (1 - st / 0.1).toFixed(3) + ')'; g.fillRect(-30, -30, W + 60, H + 60); }
+  else if (st < 0.3) { g.fillStyle = 'rgba(170,225,255,' + ((0.3 - st) * 0.7).toFixed(3) + ')'; g.fillRect(-30, -30, W + 60, H + 60); }
+}
+
+function renderAftermath() {
+  drawCityScene(gt);
+  drawCrater(0.4 + 0.12 * Math.sin(gt * 3));
+  // silhouette emerging through dust
+  const vis = smooth(st / 1.6);
+  g.save(); g.globalAlpha = vis;
+  drawGojo({ x: CX, y: GROUND + 7, scale: 1, pose: 'stand', t: gt, flutter: 0.15, sil: '#080b16' });
+  g.restore();
+  drawDust(1 - st / T_AFTER * 0.75);
+  drawEmbers();
+}
+
+function renderReveal() {
+  drawCityScene(gt);
+  const pulse = 0.5 + 0.5 * Math.sin(gt * 2.2);
+  drawCrater(0.45 + 0.2 * pulse);
+
+  const raise = smooth((st - 0.55) / 0.85);
+  // subtle standing aura
+  g.save(); g.globalCompositeOperation = 'lighter';
+  const acx = CX, acy = GROUND - 95;
+  const ag = g.createRadialGradient(acx, acy, 4, acx, acy, 120);
+  ag.addColorStop(0, 'rgba(140,230,255,' + (0.10 + 0.05 * pulse).toFixed(3) + ')');
+  ag.addColorStop(1, 'rgba(120,215,255,0)');
+  g.fillStyle = ag; g.beginPath(); g.arc(acx, acy, 120, 0, 7); g.fill();
+  g.restore();
+
+  drawGojo({ x: CX, y: GROUND + 7, scale: 1, pose: 'sign', raise, t: gt, flutter: 0.12 });
+
+  // cursed-energy glow at the raised fingertips
+  if (raise > 0.6) {
+    const hx = CX + 8.2, hy = GROUND + 7 - 147;
+    g.save(); g.globalCompositeOperation = 'lighter';
+    const fg = g.createRadialGradient(hx, hy, 0, hx, hy, 20 + pulse * 8);
+    fg.addColorStop(0, 'rgba(215,248,255,' + (0.55 + 0.3 * pulse).toFixed(3) + ')');
+    fg.addColorStop(0.4, 'rgba(150,232,255,' + (0.25 + 0.15 * pulse).toFixed(3) + ')');
+    fg.addColorStop(1, 'rgba(130,225,255,0)');
+    g.fillStyle = fg; g.beginPath(); g.arc(hx, hy, 20 + pulse * 8, 0, 7); g.fill();
+    g.restore();
+  }
+
+  // last of the dust drifting off
+  drawDust(Math.max(0, 1 - st / 1.4));
+  drawEmbers();
+
+  // silhouette crossfade from aftermath
+  if (st < 0.6) {
+    g.save(); g.globalAlpha = 1 - st / 0.6;
+    drawGojo({ x: CX, y: GROUND + 7, scale: 1, pose: 'sign', raise, t: gt, flutter: 0.12, sil: '#080b16' });
+    g.restore();
+  }
+
+  // caption
+  const capA = clamp((st - 1.4) / 1.1, 0, 1) * 0.85;
+  if (capA > 0) txt('NAH — I’D WIN.', CX, 466, { size: 17, ls: 7, weight: 600, color: 'rgba(214,228,240,' + capA.toFixed(3) + ')' });
+  // replay hint
+  if (st > 4) {
+    const ra = clamp((st - 4) / 1, 0, 1) * (0.35 + 0.2 * Math.sin(gt * 2.5));
+    txt('CLICK TO REPLAY', W - 30, H - 22, { size: 10, ls: 4, weight: 500, align: 'right', color: 'rgba(150,168,195,' + ra.toFixed(3) + ')' });
+  }
+}
+
+// ---------- WebAudio (all synthesized, guarded) ----------
+let AC = null, masterG = null, windGain = null, windFilter = null, noiseBuf = null;
+function initAudio() {
+  if (AC) return;
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    AC = new Ctx();
+    masterG = AC.createGain(); masterG.gain.value = 0.55; masterG.connect(AC.destination);
+    noiseBuf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+    windFilter = AC.createBiquadFilter(); windFilter.type = 'bandpass';
+    windFilter.frequency.value = 400; windFilter.Q.value = 0.6;
+    windGain = AC.createGain(); windGain.gain.value = 0;
+    src.connect(windFilter); windFilter.connect(windGain); windGain.connect(masterG);
+    src.start();
+    if (AC.state === 'suspended') AC.resume();
+  } catch (e) { AC = null; }
+}
+function setWind(v, f) {
+  if (!AC || !windGain) return;
+  try {
+    windGain.gain.setTargetAtTime(clamp(v, 0, 0.5), AC.currentTime, 0.12);
+    windFilter.frequency.setTargetAtTime(f, AC.currentTime, 0.18);
+  } catch (e) {}
+}
+function sfxImpact() {
+  if (!AC || !noiseBuf) return;
+  try {
+    const t0 = AC.currentTime;
+    // whoosh: falling-pitch filtered noise
+    const wh = AC.createBufferSource(); wh.buffer = noiseBuf;
+    const wf = AC.createBiquadFilter(); wf.type = 'bandpass'; wf.Q.value = 1.1;
+    wf.frequency.setValueAtTime(2600, t0); wf.frequency.exponentialRampToValueAtTime(140, t0 + 0.4);
+    const wg = AC.createGain();
+    wg.gain.setValueAtTime(0.28, t0); wg.gain.exponentialRampToValueAtTime(0.001, t0 + 0.45);
+    wh.connect(wf); wf.connect(wg); wg.connect(masterG); wh.start(t0); wh.stop(t0 + 0.6);
+    // boom: deep filtered noise
+    const bm = AC.createBufferSource(); bm.buffer = noiseBuf;
+    const bf = AC.createBiquadFilter(); bf.type = 'lowpass'; bf.frequency.value = 110; bf.Q.value = 0.8;
+    const bg = AC.createGain();
+    bg.gain.setValueAtTime(0.55, t0 + 0.02); bg.gain.exponentialRampToValueAtTime(0.001, t0 + 1.5);
+    bm.connect(bf); bf.connect(bg); bg.connect(masterG); bm.start(t0); bm.stop(t0 + 1.7);
+    // sub: ~40Hz sine drop
+    const o = AC.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(54, t0); o.frequency.exponentialRampToValueAtTime(38, t0 + 1.1);
+    const og = AC.createGain();
+    og.gain.setValueAtTime(0.34, t0 + 0.02); og.gain.exponentialRampToValueAtTime(0.001, t0 + 1.6);
+    o.connect(og); og.connect(masterG); o.start(t0); o.stop(t0 + 1.7);
+  } catch (e) {}
+}
+function sfxShimmer() {
+  if (!AC) return;
+  try {
+    const t0 = AC.currentTime;
+    [1046.5, 1568, 2093].forEach((f, i) => {
+      const o = AC.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+      const og = AC.createGain();
+      og.gain.setValueAtTime(0.0001, t0);
+      og.gain.linearRampToValueAtTime(0.014 - i * 0.003, t0 + 1.4 + i * 0.3);
+      og.gain.exponentialRampToValueAtTime(0.0001, t0 + 5);
+      o.connect(og); og.connect(masterG); o.start(t0); o.stop(t0 + 5.2);
+    });
+    if (noiseBuf) {
+      const s = AC.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+      const f = AC.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 6500;
+      const sg = AC.createGain();
+      sg.gain.setValueAtTime(0.0001, t0); sg.gain.linearRampToValueAtTime(0.011, t0 + 1.6);
+      sg.gain.exponentialRampToValueAtTime(0.0001, t0 + 5);
+      s.connect(f); f.connect(sg); sg.connect(masterG); s.start(t0); s.stop(t0 + 5.2);
+    }
+  } catch (e) {}
+}
+
+// ---------- input ----------
+cv.addEventListener('click', () => {
+  if (state === 'title') { initAudio(); enter('fall'); }
+  else if (state === 'reveal') { initAudio(); enter('fall'); }
+});
+
+// ---------- boot (debug hooks: ?auto skips title/no audio, ?t=SECONDS fast-forwards) ----------
+const q = new URLSearchParams(location.search);
+if (q.has('auto')) {
+  enter('fall');
+  const T0 = parseFloat(q.get('t') || '0') || 0;
+  const steps = Math.round(T0 * 60);
+  for (let i = 0; i < steps; i++) update(1 / 60);
+}
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

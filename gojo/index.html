@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE STRONGEST · VK Arcade</title>
+<meta name="description" content="A short cinematic pixel piece — a figure falls out of the storm over the city, and the dust clears on six glowing eyes.">
+<style>
+  html,body{margin:0;height:100%;background:#04050a;overflow:hidden}
+  body{display:flex;align-items:center;justify-content:center}
+  canvas{
+    image-rendering:pixelated;
+    image-rendering:crisp-edges;
+    width:min(100vw, calc(100vh * 16 / 9));
+    height:min(100vh, calc(100vw * 9 / 16));
+    cursor:pointer;
+  }
+  a.back{
+    position:fixed;top:14px;left:16px;z-index:5;
+    color:#5a6a80;text-decoration:none;
+    font:12px ui-monospace,Menlo,monospace;letter-spacing:2px;
+    opacity:.55;transition:opacity .2s,color .2s;
+  }
+  a.back:hover{opacity:1;color:#8fe9ff}
+</style>
+</head>
+<body>
+<a class="back" href="../arcade/">&larr; ARCADE</a>
+<canvas id="c" width="480" height="270"></canvas>
+<script>
+'use strict';
+const W = 480, H = 270, BAR = 24;           // letterboxed 480x270
+const cv = document.getElementById('c');
+const g = cv.getContext('2d');
+const Q = new URLSearchParams(location.search);
+const AUTO = Q.has('auto');
+
+/* deterministic pseudo-random (stable layouts across frames) */
+function srnd(i){ const x = Math.sin(i*127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+
+/* ---------------- pixel font ---------------- */
+const FONT = {
+  A:["0110","1001","1111","1001","1001"], B:["1110","1001","1110","1001","1110"],
+  C:["0111","1000","1000","1000","0111"], D:["1110","1001","1001","1001","1110"],
+  E:["1111","1000","1110","1000","1111"], F:["1111","1000","1110","1000","1000"],
+  G:["0111","1000","1011","1001","0111"], H:["1001","1001","1111","1001","1001"],
+  I:["111","010","010","010","111"],     J:["0011","0001","0001","1001","0110"],
+  K:["1001","1010","1100","1010","1001"],L:["1000","1000","1000","1000","1111"],
+  M:["10001","11011","10101","10001","10001"], N:["1001","1101","1011","1001","1001"],
+  O:["0110","1001","1001","1001","0110"],P:["1110","1001","1110","1000","1000"],
+  Q:["0110","1001","1001","1010","0101"],R:["1110","1001","1110","1010","1001"],
+  S:["0111","1000","0110","0001","1110"],T:["111","010","010","010","010"],
+  U:["1001","1001","1001","1001","0110"],V:["101","101","101","101","010"],
+  W:["10001","10001","10101","11011","10001"], X:["101","101","010","101","101"],
+  Y:["101","101","010","010","010"],     Z:["1111","0001","0110","1000","1111"],
+  "0":["0110","1001","1001","1001","0110"],"1":["010","110","010","010","111"],
+  "2":["1110","0001","0110","1000","1111"],"3":["1110","0001","0110","0001","1110"],
+  "4":["1001","1001","1111","0001","0001"],"5":["1111","1000","1110","0001","1110"],
+  "6":["0111","1000","1110","1001","0110"],"7":["1111","0001","0010","0100","0100"],
+  "8":["0110","1001","0110","1001","0110"],"9":["0110","1001","0111","0001","1110"],
+  "!":["1","1","1","0","1"], "'":["1","1","0","0","0"], ".":["0","0","0","0","1"],
+  ",":["00","00","00","01","10"], "-":["000","000","111","000","000"],
+  "—":["0000","0000","1111","0000","0000"], " ":["00","00","00","00","00"]
+};
+/* tracked (letter-spaced) text — the cinematic caption style */
+function textW(s, sc, track){
+  let w = 0;
+  for (const ch of s){ const gl = FONT[ch] || FONT[' ']; w += (gl[0].length + 1 + track) * sc; }
+  return w - (1 + track) * sc;
+}
+function drawText(s, x, y, sc, color, track){
+  track = track || 0;
+  g.fillStyle = color;
+  for (const ch of s){
+    const gl = FONT[ch] || FONT[' '];
+    for (let r = 0; r < 5; r++)
+      for (let c = 0; c < gl[r].length; c++)
+        if (gl[r][c] === '1') g.fillRect(x + c*sc, y + r*sc, sc, sc);
+    x += (gl[0].length + 1 + track) * sc;
+  }
+}
+function drawTextC(s, cx, y, sc, color, track){
+  drawText(s, Math.round(cx - textW(s, sc, track||0)/2), y, sc, color, track);
+}
+
+/* ---------------- sprite (proportions per the fighting-game reference) ---------------- */
+const PAL = {
+  h:'#e9eef6', H:'#b7c2d4', b:'#0b0d13', k:'#e3ac83', K:'#a97a58',
+  j:'#1b1d29', J:'#31344a', x:'#0d0f17', p:'#181a26', P:'#2a2d3f',
+  s:'#0a0b11', e:'#8fe9ff'
+};
+// standing — hand in pocket, right arm down. 28 x 51
+const GOJO = [
+"...........h..h.h...........",
+"..........hh.hhh.hh.........",
+".........hhhhhhhhhhh........",
+"........hhhhhhhhhhhhh.......",
+".......hhhhhhhhhhhhhhh......",
+".......hHhhhhhhhhhhHhh......",
+"......hhhHhhhhhhhHhhhh......",
+"......hhhhhhhhhhhhhhhh......",
+"......hHhhhhhhhhhhhhHh......",
+"......hbbbbbbbbbbbbbbh......",
+"......Hbbbbbbbbbbbbbbh......",
+".......bbbbbbbbbbbbbb.......",
+".......kkkkkkkkkkkkkk.......",
+".......Kkkkkkkkkkkkk........",
+"........kkkkkkkkkkkk........",
+"........KkkkkkkkKk..........",
+".........kkkkkkkk...........",
+"........jJJjjjjJJj..........",
+".......jjJjjjjjjJjj.........",
+"......jjjjjjjjjjjjjj........",
+".....jjjjjJjjjjJjjjjj.......",
+"....jjjjjjJjjjjJjjjjjj......",
+"....jjjjjjjjjjjjjjjjjj......",
+"....jjjJjjjjjjjjjjJjjj......",
+"...jxjjJjjjjjjjjjJjjxj......",
+"...jxjjjjjxxjjjjjjjjxj......",
+"...jxjjjjjxxjjjjjjjjxj......",
+"...jxjJjjjxxjjjjJjjjxj......",
+"...jxjjjjjxxjjjjjjjjxj......",
+"...jxjjjjjxxjjjxxjjjxj......",
+"...jxjjjjjxxjjjxjjjjxj......",
+"...jxjJjjjxxjjjxjjjjxj......",
+"...jjjjjjjxxjjjjjjjjjj......",
+"...jjjjjjjjjjjjjjjjjkk......",
+".....jjjjjjjjjjjjjjjj.......",
+".....pppppppppppppppp.......",
+".....pPpppppppppppPpp.......",
+".....pppppp...pppppp........",
+".....pppppp...pppppp........",
+".....pPpppp...ppppPp........",
+".....pppppp...pppppp........",
+"....pppppp.....pppppp.......",
+"....pppppp.....pppppp.......",
+"....pPpppp.....ppppPp.......",
+"....pppppp.....pppppp.......",
+"....ppppp.......ppppp.......",
+"....ppppp.......ppppp.......",
+"....ppppp.......ppppp.......",
+"....sssss.......sssss.......",
+"...ssssss.......ssssss......",
+"...sssss.........sssss......"
+];
+// reveal — right arm raised, two-finger sign (jujutsu salute)
+const GOJO_SIGN = GOJO.map((row, i) => {
+  const R = {
+     6: "......hhhHhhhhhhhHhhhh.k....",
+     7: "......hhhhhhhhhhhhhhhh.k.k..",
+     8: "......hHhhhhhhhhhhhhHh.kkk..",
+     9: "......hbbbbbbbbbbbbbbh.kkk..",
+    10: "......Hbbbbbbbbbbbbbbh..kk..",
+    11: ".......bbbbbbbbbbbbbb...kk..",
+    12: ".......kkkkkkkkkkkkkk...jj..",
+    13: ".......Kkkkkkkkkkkkk...jjj..",
+    14: "........kkkkkkkkkkkk...jj...",
+    15: "........KkkkkkkkKk.....jj...",
+    16: ".........kkkkkkkk.....jjj...",
+    17: "........jJJjjjjJJj....jjj...",
+    18: ".......jjJjjjjjjJjj...jjj...",
+    19: "......jjjjjjjjjjjjjj..jjj...",
+    20: ".....jjjjjJjjjjJjjjjjjjj....",
+    21: "....jjjjjjJjjjjJjjjjjjj.....",
+    24: "...jxjjJjjjjjjjjjJjjjj......",
+    25: "...jxjjjjjxxjjjjjjjjjj......",
+    26: "...jxjjjjjxxjjjjjjjjjj......",
+    27: "...jxjJjjjxxjjjjJjjjjj......",
+    28: "...jxjjjjjxxjjjjjjjjjj......",
+    29: "...jxjjjjjxxjjjxxjjjjj......",
+    30: "...jxjjjjjxxjjjxjjjjjj......",
+    31: "...jxjJjjjxxjjjxjjjjjj......",
+    32: "...jjjjjjjxxjjjjjjjjjj......",
+    33: "...jjjjjjjjjjjjjjjjjjj......"
+  };
+  return R[i] || row;
+});
+function drawSprite(map, x, y, sc, rot, palOverride){
+  g.save();
+  const w = map[0].length * sc, h = map.length * sc;
+  g.translate(x, y);
+  if (rot) g.rotate(rot);
+  for (let r = 0; r < map.length; r++)
+    for (let c = 0; c < map[r].length; c++){
+      const ch = map[r][c];
+      if (ch === '.') continue;
+      g.fillStyle = palOverride || PAL[ch];
+      g.fillRect(Math.round(c*sc - w/2), Math.round(r*sc - h/2), sc, sc);
+    }
+  g.restore();
+}
+
+/* ---------------- audio ---------------- */
+let AC = null;
+function initAudio(){
+  if (AC || AUTO) return;
+  try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
+}
+function noiseBuf(sec){
+  const len = Math.floor(AC.sampleRate * sec);
+  const buf = AC.createBuffer(1, len, AC.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random()*2 - 1;
+  return buf;
+}
+function sndWind(dur){
+  if (!AC) return;
+  const src = AC.createBufferSource(); src.buffer = noiseBuf(dur); src.loop = false;
+  const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 480; f.Q.value = 0.6;
+  const gn = AC.createGain();
+  gn.gain.setValueAtTime(0.015, AC.currentTime);
+  gn.gain.linearRampToValueAtTime(0.14, AC.currentTime + dur);
+  src.connect(f).connect(gn).connect(AC.destination); src.start();
+}
+function sndBoom(){
+  if (!AC) return;
+  const src = AC.createBufferSource(); src.buffer = noiseBuf(1.6);
+  const f = AC.createBiquadFilter(); f.type = 'lowpass';
+  f.frequency.setValueAtTime(500, AC.currentTime);
+  f.frequency.exponentialRampToValueAtTime(60, AC.currentTime + 1.4);
+  const gn = AC.createGain();
+  gn.gain.setValueAtTime(0.7, AC.currentTime);
+  gn.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 1.5);
+  src.connect(f).connect(gn).connect(AC.destination); src.start();
+  const o = AC.createOscillator(), g2 = AC.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(44, AC.currentTime);
+  o.frequency.exponentialRampToValueAtTime(24, AC.currentTime + 1.2);
+  g2.gain.setValueAtTime(0.4, AC.currentTime);
+  g2.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + 1.3);
+  o.connect(g2).connect(AC.destination); o.start(); o.stop(AC.currentTime + 1.3);
+}
+function sndReveal(){
+  if (!AC) return;
+  const o = AC.createOscillator(), gn = AC.createGain();
+  o.type = 'sine'; o.frequency.value = 1180;
+  gn.gain.setValueAtTime(0.0001, AC.currentTime);
+  gn.gain.exponentialRampToValueAtTime(0.045, AC.currentTime + 0.5);
+  gn.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + 2.2);
+  o.connect(gn).connect(AC.destination); o.start(); o.stop(AC.currentTime + 2.3);
+}
+
+/* ---------------- world ---------------- */
+const GROUND_Y = 216, CX = 240;
+const FALL_T = 4.2, PLUNGE_T = 0.45, IMPACT_T = 2.4, AFTER_T = 2.6;
+let state = AUTO ? 'fall' : 'title';
+let st = 0;
+let debris = [], dustp = [], embers = [];
+let revealSounded = false;
+
+/* city skyline (seeded once) */
+const FAR = [], NEAR = [];
+(function(){
+  let x = -20, i = 0;
+  while (x < W + 40){ const w = 26 + srnd(i)*44, h = 34 + srnd(i+50)*72; FAR.push({x, w, h}); x += w + 2 + srnd(i+90)*10; i++; }
+  x = -30; i = 200;
+  while (x < W + 40){ const w = 38 + srnd(i)*58, h = 16 + srnd(i+50)*52; NEAR.push({x, w, h}); x += w + 4 + srnd(i+90)*14; i++; }
+})();
+
+function setState(s){
+  state = s; st = 0;
+  if (s === 'fall') sndWind(FALL_T + PLUNGE_T);
+  if (s === 'impact'){
+    sndBoom();
+    debris = []; dustp = []; embers = []; revealSounded = false;
+    for (let i = 0; i < 34; i++){
+      const a = (0.15 + srnd(i)*0.7) * Math.PI, sp = 60 + srnd(i+40)*180;
+      debris.push({ x: CX + (srnd(i+80)*24 - 12), y: GROUND_Y,
+        vx: Math.cos(a)*sp*(srnd(i+120) < 0.5 ? -1 : 1),
+        vy: -Math.sin(a)*sp - 40, life: 1.1 + srnd(i+160)*0.9, sz: srnd(i+200) < 0.25 ? 3 : 2 });
+    }
+    for (let i = 0; i < 26; i++)
+      dustp.push({ x: CX + (srnd(i+300)*70 - 35), y: GROUND_Y - srnd(i+340)*6,
+        vx: (srnd(i+380)*2 - 1)*16, vy: -14 - srnd(i+420)*30,
+        r: 7 + srnd(i+460)*16, life: 2.2 + srnd(i+500)*1.6 });
+    for (let i = 0; i < 30; i++)
+      embers.push({ x: CX + (srnd(i+600)*60 - 30), y: GROUND_Y + 2,
+        vy: -6 - srnd(i+640)*16, ph: srnd(i+680)*6.28, life: 2.5 + srnd(i+720)*3.5, d: srnd(i+760)*2.5 });
+  }
+}
+
+/* ---------------- scene pieces ---------------- */
+function skyGrad(y0, y1, lit){
+  const gr = g.createLinearGradient(0, y0, 0, y1);
+  if (lit > 0){
+    gr.addColorStop(0, `rgb(${28+lit*70},${34+lit*74},${56+lit*84})`);
+    gr.addColorStop(1, `rgb(${43+lit*70},${54+lit*74},${82+lit*84})`);
+  } else {
+    gr.addColorStop(0, '#0a0e1c'); gr.addColorStop(0.55, '#131a2c'); gr.addColorStop(1, '#22304a');
+  }
+  g.fillStyle = gr; g.fillRect(0, y0, W, y1 - y0);
+}
+function lightningAmt(times){
+  for (const tt of times){
+    const d = st - tt;
+    if (d > 0 && d < 0.35) return Math.max(0, 1 - d/0.35) * (d < 0.08 ? 1 : 0.45);
+  }
+  return 0;
+}
+function drawCloudBank(cy, col, seed, scroll){
+  g.fillStyle = col;
+  for (let i = 0; i < 12; i++){
+    const bx = ((srnd(seed+i)*W*1.4) + scroll) % (W + 160) - 80;
+    const by = cy + (srnd(seed+i+30)*2 - 1) * 26;
+    const rw = 60 + srnd(seed+i+60)*90, rh = 14 + srnd(seed+i+90)*16;
+    g.beginPath(); g.ellipse(bx, by, rw, rh, 0, 0, Math.PI*2); g.fill();
+    g.beginPath(); g.ellipse(bx + rw*0.4, by - rh*0.5, rw*0.55, rh*0.7, 0, 0, Math.PI*2); g.fill();
+  }
+}
+function drawRain(t, vertical){
+  g.strokeStyle = 'rgba(168,186,210,0.13)'; g.lineWidth = 1;
+  g.beginPath();
+  for (let i = 0; i < 54; i++){
+    const sp = 320 + srnd(i)*260;
+    const x = (srnd(i+100)*W + t*(vertical ? 0 : 26)) % W;
+    const y = ((srnd(i+200)*H) + t*sp * (vertical ? -1 : 1)) % (H+30) - 15;
+    const yy = vertical ? H - y : y;
+    g.moveTo(x, yy); g.lineTo(x - (vertical ? 0 : 3), yy + (vertical ? 16 : 11));
+  }
+  g.stroke();
+}
+function drawCity(lit){
+  // far layer
+  g.fillStyle = lit > 0.1 ? '#111826' : '#0a0f1a';
+  for (const b of FAR) g.fillRect(b.x, GROUND_Y - 14 - b.h, b.w, b.h + 14);
+  // red tower beacons
+  const blink = (Math.sin(perfT*1.8) > 0.2) ? 0.75 : 0.15;
+  g.fillStyle = `rgba(214,64,64,${blink})`;
+  for (const bi of [3, 9]){ const b = FAR[bi % FAR.length]; g.fillRect(b.x + b.w/2, GROUND_Y - 16 - b.h, 2, 2); }
+  // near layer
+  g.fillStyle = lit > 0.1 ? '#0b111c' : '#060a12';
+  for (const b of NEAR) g.fillRect(b.x, GROUND_Y - 8 - b.h, b.w, b.h + 8);
+  // sparse amber windows
+  g.fillStyle = 'rgba(232,190,122,0.85)';
+  for (let i = 0; i < 60; i++){
+    const b = NEAR[Math.floor(srnd(i+900)*NEAR.length)];
+    if (srnd(i+950) < 0.45) continue;
+    g.fillRect(Math.floor(b.x + 3 + srnd(i+970)*(b.w-6)),
+               Math.floor(GROUND_Y - 10 - srnd(i+990)*b.h), 1, 2);
+  }
+  g.fillStyle = 'rgba(170,200,235,0.5)';
+  for (let i = 0; i < 24; i++){
+    const b = FAR[Math.floor(srnd(i+1100)*FAR.length)];
+    if (srnd(i+1150) < 0.5) continue;
+    g.fillRect(Math.floor(b.x + 2 + srnd(i+1170)*(b.w-4)),
+               Math.floor(GROUND_Y - 18 - srnd(i+1190)*b.h), 1, 1);
+  }
+  // street
+  g.fillStyle = '#0a0d13'; g.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+  g.fillStyle = 'rgba(190,205,225,0.05)';
+  for (let i = 0; i < 9; i++) g.fillRect(i*58 + 12, GROUND_Y + 3, 26, 1);
+}
+function drawCrater(age){ // age since impact
+  const grow = Math.min(1, age/0.2);
+  // lit rim so the bowl reads against the dark street
+  g.fillStyle = '#28324a';
+  g.beginPath(); g.ellipse(CX, GROUND_Y + 3, 49*grow, 10.5*grow, 0, 0, Math.PI*2); g.fill();
+  g.fillStyle = '#0f1420';
+  g.beginPath(); g.ellipse(CX, GROUND_Y + 3, 46*grow, 9*grow, 0, 0, Math.PI*2); g.fill();
+  g.fillStyle = '#030408';
+  g.beginPath(); g.ellipse(CX, GROUND_Y + 4, 30*grow, 5.5*grow, 0, 0, Math.PI*2); g.fill();
+  // cursed-energy heat, cooling off
+  const glow = Math.max(0, 0.5 - age*0.09);
+  if (glow > 0.01){
+    const gr = g.createRadialGradient(CX, GROUND_Y+3, 2, CX, GROUND_Y+3, 40);
+    gr.addColorStop(0, `rgba(126,215,255,${glow})`); gr.addColorStop(1, 'rgba(126,215,255,0)');
+    g.fillStyle = gr; g.beginPath(); g.ellipse(CX, GROUND_Y+3, 40, 10, 0, 0, Math.PI*2); g.fill();
+  }
+  // rim debris
+  g.fillStyle = '#10151f';
+  g.fillRect(CX - 52*grow, GROUND_Y - 2, 8, 3); g.fillRect(CX + 44*grow, GROUND_Y - 2, 8, 3);
+  g.fillRect(CX - 40*grow, GROUND_Y - 4, 5, 3); g.fillRect(CX + 34*grow, GROUND_Y - 4, 5, 3);
+}
+function groundShadow(x, a){
+  g.fillStyle = `rgba(0,0,0,${a})`;
+  g.beginPath(); g.ellipse(x, GROUND_Y + 2, 34, 6, 0, 0, Math.PI*2); g.fill();
+}
+function drawAura(x, y, r, t){
+  // cursed-energy aura — layered, flickering
+  const fl = 0.8 + 0.2*Math.sin(t*9) * Math.sin(t*5.3);
+  const gr = g.createRadialGradient(x, y, 2, x, y, r);
+  gr.addColorStop(0, `rgba(143,233,255,${(0.22*fl).toFixed(3)})`);
+  gr.addColorStop(0.55, `rgba(126,190,255,${(0.10*fl).toFixed(3)})`);
+  gr.addColorStop(1, 'rgba(126,190,255,0)');
+  g.fillStyle = gr;
+  g.beginPath(); g.arc(x, y, r, 0, Math.PI*2); g.fill();
+  // rising wisps
+  for (let i = 0; i < 14; i++){
+    const p = (t*0.7 + srnd(i+40)) % 1;
+    const wx = x + Math.sin(t*2 + i*2.4)*(r*0.4) * (1 - p*0.4);
+    const wy = y + r*0.5 - p * r * 1.3;
+    const a = Math.sin(p*Math.PI) * 0.5;
+    g.fillStyle = `rgba(180,240,255,${a.toFixed(3)})`;
+    g.fillRect(Math.round(wx), Math.round(wy), 1, 2);
+  }
+}
+function drawShockwaves(x, y, t, period, wobble){
+  // translucent pressure rings pulsing off him — visible but airy
+  for (const off of [0, period/2]){
+    const p = ((t + off) % period) / period;
+    const r = 8 + p * 130;
+    const a = Math.max(0, 0.38 * (1 - p));
+    g.strokeStyle = `rgba(210,240,255,${a.toFixed(3)})`;
+    g.lineWidth = p < 0.2 ? 2 : 1;
+    g.beginPath(); g.ellipse(x, y, r, r * (wobble ? 0.72 : 1), 0, 0, Math.PI*2); g.stroke();
+    // faint inner fill so the wavefront reads on dark sky
+    g.strokeStyle = `rgba(143,233,255,${(a*0.5).toFixed(3)})`;
+    g.beginPath(); g.ellipse(x, y, r*0.92, r*0.92*(wobble ? 0.72 : 1), 0, 0, Math.PI*2); g.stroke();
+  }
+}
+function drawEmbers(dt){
+  for (const e of embers){
+    if (e.d > 0){ e.d -= dt; continue; }
+    e.y += e.vy * dt; e.life -= dt;
+    if (e.life <= 0) continue;
+    const a = Math.min(0.8, e.life * 0.5) * (0.6 + 0.4*Math.sin(perfT*5 + e.ph));
+    g.fillStyle = `rgba(143,233,255,${a.toFixed(3)})`;
+    g.fillRect(Math.round(e.x + Math.sin(perfT*1.6 + e.ph)*5), Math.round(e.y), 1, 1);
+  }
+  embers = embers.filter(e => e.life > 0);
+}
+function grainAndBars(){
+  g.fillStyle = 'rgba(255,255,255,0.03)';
+  for (let i = 0; i < 70; i++) g.fillRect(Math.random()*W|0, Math.random()*H|0, 1, 1);
+  g.fillStyle = 'rgba(0,0,0,0.05)';
+  for (let i = 0; i < 70; i++) g.fillRect(Math.random()*W|0, Math.random()*H|0, 1, 1);
+  const vg = g.createRadialGradient(W/2, H/2, H*0.42, W/2, H/2, H*0.85);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.55)');
+  g.fillStyle = vg; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#000';
+  g.fillRect(0, 0, W, BAR); g.fillRect(0, H - BAR, W, BAR);
+}
+
+/* ---------------- update ---------------- */
+function update(dt){
+  st += dt;
+  if (state === 'fall' && st >= FALL_T) setState('plunge');
+  else if (state === 'plunge' && st >= PLUNGE_T) setState('impact');
+  else if (state === 'impact'){
+    for (const p of debris){
+      p.x += p.vx*dt; p.vy += 320*dt; p.y += p.vy*dt; p.life -= dt;
+      if (p.y > GROUND_Y + 2 && p.vy > 0){ p.vy *= -0.3; p.vx *= 0.55; }
+    }
+    debris = debris.filter(p => p.life > 0);
+    if (st >= IMPACT_T) setState('after');
+  }
+  else if (state === 'after' && st >= AFTER_T) setState('reveal');
+  else if (state === 'reveal' && !revealSounded && st > 0.6){ revealSounded = true; sndReveal(); }
+  if (state === 'impact' || state === 'after'){
+    for (const p of dustp){
+      p.x += p.vx*dt; p.y += p.vy*dt; p.vy *= (1 - 0.5*dt); p.vx *= (1 - 0.25*dt); p.life -= dt;
+    }
+    dustp = dustp.filter(p => p.life > 0);
+  }
+}
+
+/* ---------------- render ---------------- */
+let perfT = 0;
+function render(dt){
+  g.clearRect(0, 0, W, H);
+
+  if (state === 'title'){
+    skyGrad(0, H, 0);
+    drawCloudBank(46, 'rgba(7,10,20,0.85)', 10, perfT*4);
+    drawCloudBank(84, 'rgba(10,14,26,0.9)', 70, -perfT*2.6);
+    drawCity(0); drawRain(perfT, false);
+    groundShadow(CX, 0.5);
+    drawSprite(GOJO, CX, GROUND_Y - 50, 2, 0, '#080b12');
+    drawTextC('THE STRONGEST', W/2, 92, 3, '#dbe6f2', 2);
+    g.fillStyle = 'rgba(143,233,255,0.28)';
+    g.fillRect(W/2 - 92, 118, 184, 1);
+    drawTextC('A JUJUTSU KAISEN PIXEL PIECE', W/2, 128, 1, '#5f6f86', 1);
+    const a = 0.35 + 0.3*Math.sin(perfT*2.2);
+    drawTextC('CLICK TO BEGIN', W/2, H - BAR - 18, 1, `rgba(160,180,205,${a.toFixed(2)})`, 2);
+  }
+  else if (state === 'fall'){
+    const lit = lightningAmt([1.3, 2.9]);
+    skyGrad(0, H, lit);
+    drawCloudBank(H - ((st*95) % (H+120)) + 40, 'rgba(8,11,22,0.85)', 10, st*8);
+    drawCloudBank(H - ((st*160 + 130) % (H+120)) + 40, 'rgba(12,16,30,0.9)', 70, -st*6);
+    drawCloudBank(H - ((st*240 + 60) % (H+140)) + 50, 'rgba(16,22,38,0.95)', 140, st*12);
+    drawRain(st, true);
+    // falling figure — aura farming: glow, wisps, pressure shockwaves, ghost trail
+    const fx = CX + Math.sin(st*1.7)*6, fy = 108 + Math.sin(st*2.6)*4;
+    const rot = Math.sin(st*1.9)*0.05;
+    drawShockwaves(fx, fy, st, 1.25, false);
+    drawAura(fx, fy, 52, st);
+    g.globalAlpha = 0.14; drawSprite(GOJO, fx, fy - 16, 1, rot, '#9fb4cc');
+    g.globalAlpha = 0.28; drawSprite(GOJO, fx, fy - 8, 1, rot, '#5d7085');
+    g.globalAlpha = 1;    drawSprite(GOJO, fx, fy, 1, rot);
+    if (lit > 0.2){ g.globalAlpha = lit*0.5; drawSprite(GOJO, fx, fy, 1, rot, '#dfe9f5'); g.globalAlpha = 1; }
+    const alt = Math.max(0, Math.round(3000 * (1 - st/FALL_T)));
+    drawText('SHIBUYA', 14, BAR + 10, 1, 'rgba(125,140,160,0.75)', 2);
+    drawText(alt + ' M', 14, BAR + 20, 1, 'rgba(125,140,160,0.55)', 2);
+  }
+  else if (state === 'plunge'){
+    const lit = lightningAmt([0.05]);
+    skyGrad(0, GROUND_Y, lit);
+    drawCloudBank(40, 'rgba(7,10,20,0.85)', 10, 6);
+    drawCity(lit); drawRain(perfT, false);
+    const p = st / PLUNGE_T;
+    const y = -30 + (GROUND_Y + 30) * p * p;
+    const gr = g.createLinearGradient(0, y - 90, 0, y);
+    gr.addColorStop(0, 'rgba(223,233,245,0)'); gr.addColorStop(1, 'rgba(223,233,245,0.8)');
+    g.fillStyle = gr; g.fillRect(CX - 1, y - 90, 3, 90);
+    drawSprite(GOJO, CX, y, 1, 0, '#cfdcea');
+  }
+  else if (state === 'impact'){
+    const amp = Math.max(0, 5 * (1 - st/1.0));
+    g.save();
+    g.translate(Math.round((Math.random()*2-1)*amp), Math.round((Math.random()*2-1)*amp));
+    skyGrad(0, GROUND_Y, 0);
+    drawCloudBank(40, 'rgba(7,10,20,0.85)', 10, 6);
+    drawCity(0);
+    drawCrater(st);
+    // twin shockwave rings, thin and fast
+    for (const [sp, col, lw] of [[300,'rgba(207,227,247,',1],[190,'rgba(100,130,165,',1]]){
+      const r = st * sp;
+      if (r < 260){
+        const a = Math.max(0, 0.7 * (1 - r/260));
+        g.strokeStyle = col + a.toFixed(3) + ')'; g.lineWidth = lw;
+        g.beginPath(); g.ellipse(CX, GROUND_Y, r, r*0.32, 0, Math.PI, Math.PI*2); g.stroke();
+      }
+    }
+    // dust column
+    for (const p of dustp){
+      const a = Math.max(0, Math.min(0.55, p.life * 0.28));
+      g.fillStyle = `rgba(64,72,92,${a.toFixed(3)})`;
+      g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI*2); g.fill();
+    }
+    for (const p of debris){ g.fillStyle = '#38405a'; g.fillRect(p.x, p.y, p.sz, p.sz); }
+    drawEmbers(dt);
+    drawRain(perfT, false);
+    g.restore();
+    if (st < 0.14){
+      g.fillStyle = `rgba(240,248,255,${(1 - st/0.14).toFixed(3)})`;
+      g.fillRect(0, 0, W, H);
+    }
+  }
+  else if (state === 'after'){
+    skyGrad(0, GROUND_Y, 0);
+    drawCloudBank(40, 'rgba(7,10,20,0.85)', 10, 6);
+    drawCity(0);
+    drawCrater(IMPACT_T + st);
+    // silhouette emerges as dust thins
+    drawSprite(GOJO, CX, GROUND_Y - 47, 2, 0, '#070a10');
+    for (const p of dustp){
+      const a = Math.max(0, Math.min(0.45, p.life * 0.22)) * (1 - st/AFTER_T*0.6);
+      g.fillStyle = `rgba(64,72,92,${a.toFixed(3)})`;
+      g.beginPath(); g.arc(p.x, p.y - st*6, p.r + st*4, 0, Math.PI*2); g.fill();
+    }
+    drawEmbers(dt);
+    drawRain(perfT, false);
+  }
+  else if (state === 'reveal'){
+    skyGrad(0, GROUND_Y, 0);
+    drawCloudBank(40, 'rgba(7,10,20,0.85)', 10, 6);
+    drawCity(0);
+    drawCrater(IMPACT_T + AFTER_T + st);
+    const signUp = st > 0.9;
+    groundShadow(CX, 0.6);
+    drawSprite(signUp ? GOJO_SIGN : GOJO, CX, GROUND_Y - 47, 2, 0);
+    if (signUp){
+      // cursed energy at the raised fingertips
+      const pulse = 0.3 + 0.18*Math.sin(perfT*2.8);
+      const fxp = CX + 19, fyp = GROUND_Y - 47 - 38;
+      const gr = g.createRadialGradient(fxp, fyp, 0, fxp, fyp, 13);
+      gr.addColorStop(0, `rgba(143,233,255,${pulse.toFixed(2)})`);
+      gr.addColorStop(1, 'rgba(143,233,255,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(fxp, fyp, 13, 0, Math.PI*2); g.fill();
+      g.fillStyle = `rgba(232,251,255,${(pulse+0.3).toFixed(2)})`;
+      g.fillRect(fxp - 1, fyp - 2, 1, 1); g.fillRect(fxp + 2, fyp - 3, 1, 1);
+    }
+    drawEmbers(dt);
+    drawRain(perfT, false);
+    if (st > 1.6){
+      const a = Math.min(0.85, (st - 1.6) / 1.2);
+      drawTextC("NAH — I'D WIN.", W/2, H - BAR - 22, 1, `rgba(214,228,240,${a.toFixed(2)})`, 3);
+    }
+    if (st > 4){
+      const a = 0.25 + 0.15*Math.sin(perfT*1.8);
+      drawText('REPLAY', W - 14 - textW('REPLAY',1,2), H - BAR - 10, 1, `rgba(125,140,160,${a.toFixed(2)})`, 2);
+    }
+  }
+  grainAndBars();
+}
+
+/* ---------------- loop + input ---------------- */
+const SKIP = parseFloat(Q.get('t') || '0');
+if (SKIP > 0) for (let s = 0; s < SKIP; s += 1/60){ perfT += 1/60; update(1/60); }
+
+let last = performance.now();
+function loop(now){
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  perfT += dt;
+  update(dt); render(dt);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+function onAction(){
+  initAudio();
+  if (state === 'title' || state === 'reveal') setState('fall');
+}
+cv.addEventListener('click', onAction);
+window.addEventListener('keydown', e => { if (e.code === 'Space' || e.code === 'Enter') onAction(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GOJO VS SAITAMA · VK Arcade</title>
+<meta name="description" content="A choreographed anime fight — Satoru Gojo vs Saitama. Two endings, cinematic camera angles, no pixels.">
+<style>
+  html,body{margin:0;height:100%;background:#04050a;overflow:hidden}
+  body{display:flex;align-items:center;justify-content:center;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  canvas{
+    width:min(100vw, calc(100vh * 16 / 9));
+    height:min(100vh, calc(100vw * 9 / 16));
+    cursor:pointer;display:block;
+  }
+  a.back{
+    position:fixed;top:14px;left:16px;z-index:5;
+    color:#5a6a80;text-decoration:none;
+    font:12px ui-monospace,Menlo,monospace;letter-spacing:2px;
+    opacity:.55;transition:opacity .2s,color .2s;
+  }
+  a.back:hover{opacity:1;color:#8fe9ff}
+</style>
+</head>
+<body>
+<a class="back" href="../arcade/">&larr; ARCADE</a>
+<canvas id="c" width="960" height="540"></canvas>
+<script>
+'use strict';
+const W = 960, H = 540, BAR = 54, GND = 404;
+const cv = document.getElementById('c');
+const g = cv.getContext('2d');
+const Q = new URLSearchParams(location.search);
+const AUTO = Q.has('auto');
+let ENDING = (Q.get('ending') === 'gojo') ? 'gojo' : (Q.get('ending') === 'saitama' ? 'saitama' : null);
+
+function srnd(i){ const x = Math.sin(i*127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+const clamp = (v,a,b)=>v<a?a:v>b?b:v;
+const lerp = (a,b,t)=>a+(b-a)*t;
+const ease = t => t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+const easeOut = t => 1-Math.pow(1-t,3);
+const easeIn = t => t*t*t;
+
+/* ============================================================ AUDIO */
+let AC=null;
+function initAudio(){ if(AC||AUTO)return; try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} }
+function noise(sec){ const n=Math.floor(AC.sampleRate*sec),b=AC.createBuffer(1,n,AC.sampleRate),d=b.getChannelData(0); for(let i=0;i<n;i++)d[i]=Math.random()*2-1; return b; }
+function whoosh(){ if(!AC)return; const s=AC.createBufferSource();s.buffer=noise(0.4);const f=AC.createBiquadFilter();f.type='bandpass';f.frequency.setValueAtTime(300,AC.currentTime);f.frequency.exponentialRampToValueAtTime(2200,AC.currentTime+0.3);f.Q.value=0.8;const gn=AC.createGain();gn.gain.setValueAtTime(0.0001,AC.currentTime);gn.gain.linearRampToValueAtTime(0.12,AC.currentTime+0.12);gn.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+0.4);s.connect(f).connect(gn).connect(AC.destination);s.start(); }
+function hit(big){ if(!AC)return; const s=AC.createBufferSource();s.buffer=noise(big?0.6:0.16);const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.value=big?1400:2600;const gn=AC.createGain();gn.gain.setValueAtTime(big?0.6:0.3,AC.currentTime);gn.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+(big?0.6:0.18));s.connect(f).connect(gn).connect(AC.destination);s.start(); const o=AC.createOscillator(),g2=AC.createGain();o.type='sine';o.frequency.setValueAtTime(big?90:150,AC.currentTime);o.frequency.exponentialRampToValueAtTime(big?32:60,AC.currentTime+(big?0.5:0.15));g2.gain.setValueAtTime(big?0.5:0.25,AC.currentTime);g2.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+(big?0.6:0.18));o.connect(g2).connect(AC.destination);o.start();o.stop(AC.currentTime+(big?0.7:0.2)); }
+function rumble(dur){ if(!AC)return; const s=AC.createBufferSource();s.buffer=noise(dur);const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.value=140;const gn=AC.createGain();gn.gain.setValueAtTime(0.5,AC.currentTime);gn.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+dur);s.connect(f).connect(gn).connect(AC.destination);s.start(); }
+function charge(dur){ if(!AC)return; const o=AC.createOscillator(),gn=AC.createGain();o.type='sawtooth';o.frequency.setValueAtTime(80,AC.currentTime);o.frequency.exponentialRampToValueAtTime(900,AC.currentTime+dur);gn.gain.setValueAtTime(0.0001,AC.currentTime);gn.gain.linearRampToValueAtTime(0.12,AC.currentTime+dur*0.7);gn.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+dur+0.3);const f=AC.createBiquadFilter();f.type='bandpass';f.frequency.value=600;f.Q.value=3;o.connect(f).connect(gn).connect(AC.destination);o.start();o.stop(AC.currentTime+dur+0.4); }
+function beam(){ if(!AC)return; const s=AC.createBufferSource();s.buffer=noise(1.3);const f=AC.createBiquadFilter();f.type='bandpass';f.frequency.value=420;f.Q.value=1.5;const gn=AC.createGain();gn.gain.setValueAtTime(0.5,AC.currentTime);gn.gain.setValueAtTime(0.5,AC.currentTime+0.9);gn.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+1.3);s.connect(f).connect(gn).connect(AC.destination);s.start();const o=AC.createOscillator(),g2=AC.createGain();o.type='sine';o.frequency.value=55;g2.gain.setValueAtTime(0.4,AC.currentTime);g2.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+1.3);o.connect(g2).connect(AC.destination);o.start();o.stop(AC.currentTime+1.3); }
+let audioFired={};
+function once(key,fn){ if(AUTO||!AC)return; if(audioFired[key])return; audioFired[key]=true; fn(); }
+
+/* ============================================================ DRAW PRIMITIVES */
+function capsule(x1,y1,x2,y2,w1,w2,color){
+  const a=Math.atan2(y2-y1,x2-x1), nx=Math.cos(a+Math.PI/2), ny=Math.sin(a+Math.PI/2);
+  g.fillStyle=color;
+  g.beginPath();
+  g.moveTo(x1+nx*w1,y1+ny*w1); g.lineTo(x2+nx*w2,y2+ny*w2);
+  g.lineTo(x2-nx*w2,y2-ny*w2); g.lineTo(x1-nx*w1,y1-ny*w1);
+  g.closePath(); g.fill();
+  g.beginPath(); g.arc(x1,y1,w1,0,7); g.fill();
+  g.beginPath(); g.arc(x2,y2,w2,0,7); g.fill();
+}
+function disc(x,y,r,c){ g.fillStyle=c; g.beginPath(); g.arc(x,y,r,0,7); g.fill(); }
+
+/* ============================================================ POSES
+   Local coords: hip at (0,0). Character ~118 units tall (head top ~ -70, feet ~ +58).
+   Joints named. facing multiplies local x. */
+const IDLE = {
+  hip:[0,0], chest:[1,-30], neck:[2,-44], head:[3,-56],
+  shA:[-7,-30], elA:[-12,-14], haA:[-11,3],
+  shB:[9,-30],  elB:[14,-14], haB:[13,3],
+  knA:[-7,26], ftA:[-9,58], knB:[8,26], ftB:[11,58]
+};
+const DASH = {
+  hip:[0,0], chest:[10,-28], neck:[16,-40], head:[21,-50],
+  shA:[2,-28], elA:[-8,-20], haA:[-18,-14],
+  shB:[16,-28], elB:[24,-18], haB:[30,-10],
+  knA:[-14,22], ftA:[-24,52], knB:[14,24], ftB:[26,50]
+};
+const PUNCH = {
+  hip:[0,0], chest:[8,-30], neck:[12,-43], head:[16,-54],
+  shA:[0,-29], elA:[-8,-16], haA:[-14,-2],
+  shB:[14,-30], elB:[30,-30], haB:[50,-30],
+  knA:[-12,24], ftA:[-22,58], knB:[16,24], ftB:[30,54]
+};
+const BLOCK = {
+  hip:[0,0], chest:[-3,-30], neck:[-4,-44], head:[-5,-55],
+  shA:[6,-31], elA:[12,-40], haA:[8,-52],
+  shB:[10,-31], elB:[16,-41], haB:[12,-53],
+  knA:[-9,26], ftA:[-13,58], knB:[9,26], ftB:[13,58]
+};
+const STAGGER = {
+  hip:[0,0], chest:[-8,-28], neck:[-14,-40], head:[-20,-49],
+  shA:[-14,-26], elA:[-22,-16], haA:[-30,-8],
+  shB:[-4,-28], elB:[6,-22], haB:[16,-24],
+  knA:[-4,26], ftA:[-2,58], knB:[12,24], ftB:[22,54]
+};
+const FLOAT = {
+  hip:[0,0], chest:[0,-31], neck:[0,-45], head:[0,-57],
+  shA:[-9,-30], elA:[-15,-18], haA:[-18,-4],
+  shB:[9,-30], elB:[15,-18], haB:[18,-4],
+  knA:[-7,24], ftA:[-9,54], knB:[7,24], ftB:[9,54]
+};
+const CHARGE = { // hands together in front, forming the sphere
+  hip:[0,0], chest:[0,-31], neck:[0,-45], head:[0,-57],
+  shA:[-9,-30], elA:[-6,-20], haA:[3,-26],
+  shB:[9,-30], elB:[6,-20], haB:[-3,-26],
+  knA:[-7,26], ftA:[-9,56], knB:[7,26], ftB:[9,56]
+};
+const CAST = { // arms thrust forward firing beam
+  hip:[0,0], chest:[6,-31], neck:[9,-44], head:[12,-55],
+  shA:[2,-30], elA:[16,-30], haA:[34,-28],
+  shB:[6,-30], elB:[22,-28], haB:[40,-26],
+  knA:[-10,24], ftA:[-18,56], knB:[14,24], ftB:[26,54]
+};
+const KO = { // lying — used with big rotation
+  hip:[0,0], chest:[-30,-2], neck:[-44,-3], head:[-56,-5],
+  shA:[-28,6], elA:[-40,12], haA:[-52,16],
+  shB:[-28,-8], elB:[-42,-12], haB:[-54,-10],
+  knA:[26,4], ftA:[54,6], knB:[26,-6], ftB:[54,-10]
+};
+function lp(a,b,t){ const o={}; for(const k in a) o[k]=[lerp(a[k][0],b[k][0],t),lerp(a[k][1],b[k][1],t)]; return o; }
+
+/* transform a pose's joints to world via center, scale, facing, rot */
+function place(pose,cx,cy,s,facing,rot){
+  const c=Math.cos(rot||0), sn=Math.sin(rot||0), J={};
+  for(const k in pose){
+    let x=pose[k][0]*facing*s, y=pose[k][1]*s;
+    J[k]=[cx + x*c - y*sn, cy + x*sn + y*c];
+  }
+  return J;
+}
+
+/* ============================================================ SAITAMA */
+function drawSaitama(pose,cx,cy,s,facing,rot,opts){
+  opts=opts||{};
+  const J=place(pose,cx,cy,s,facing,rot);
+  const suit='#f2c53d', suitSh='#c99a24', red='#d8352c', redSh='#a81f18';
+  const skin='#f4c9a0', skinSh='#d3a074', white='#eef1f4';
+  const lw=6.2*s, aw=4.8*s, legw=6*s;
+  // CAPE behind
+  const nk=J.neck, hp=J.hip;
+  const flow=Math.sin((clock*4)+cx*0.05)*8*s;
+  g.fillStyle=white;
+  g.beginPath();
+  g.moveTo(nk[0]-facing*7*s, nk[1]-2*s);
+  g.quadraticCurveTo(nk[0]-facing*30*s, hp[1]-10*s, hp[0]-facing*(30*s)-flow, hp[1]+38*s);
+  g.quadraticCurveTo(hp[0]-facing*10*s, hp[1]+30*s, hp[0]-facing*2*s, hp[1]+20*s);
+  g.quadraticCurveTo(nk[0]-facing*4*s, nk[1]+18*s, nk[0]-facing*7*s, nk[1]-2*s);
+  g.closePath(); g.fill();
+  g.fillStyle='rgba(150,165,185,0.35)';
+  g.beginPath();
+  g.moveTo(hp[0]-facing*2*s,hp[1]+20*s);
+  g.quadraticCurveTo(hp[0]-facing*16*s,hp[1]+30*s,hp[0]-facing*(30*s)-flow,hp[1]+38*s);
+  g.lineTo(hp[0]-facing*(20*s)-flow,hp[1]+34*s);
+  g.quadraticCurveTo(hp[0]-facing*8*s,hp[1]+26*s,hp[0]-facing*2*s,hp[1]+20*s);
+  g.closePath(); g.fill();
+  // BACK leg + arm (darker)
+  capsule(J.hip[0],J.hip[1],J.knA[0],J.knA[1],legw,legw*0.8,suitSh);
+  capsule(J.knA[0],J.knA[1],J.ftA[0],J.ftA[1],legw*0.8,legw*0.6,suitSh);
+  disc(J.ftA[0],J.ftA[1],legw*0.85,redSh);
+  capsule(J.shA[0],J.shA[1],J.elA[0],J.elA[1],aw,aw*0.85,suitSh);
+  capsule(J.elA[0],J.elA[1],J.haA[0],J.haA[1],aw*0.85,aw*0.7,suitSh);
+  disc(J.haA[0],J.haA[1],aw*1.25,redSh);
+  // TORSO
+  capsule(J.hip[0],J.hip[1],J.chest[0],J.chest[1],9*s,8.5*s,suit);
+  // belt
+  disc(J.hip[0],J.hip[1],9*s,'#232323');
+  g.fillStyle='#232323'; g.fillRect(J.hip[0]-9*s,J.hip[1]-3*s,18*s,6*s);
+  // torso shading
+  capsule(J.hip[0]+facing*3*s,J.hip[1],J.chest[0]+facing*3*s,J.chest[1],3*s,3*s,suitSh);
+  // FRONT leg + arm
+  capsule(J.hip[0],J.hip[1],J.knB[0],J.knB[1],legw,legw*0.8,suit);
+  capsule(J.knB[0],J.knB[1],J.ftB[0],J.ftB[1],legw*0.8,legw*0.6,suit);
+  disc(J.ftB[0],J.ftB[1],legw*0.9,red);
+  capsule(J.shB[0],J.shB[1],J.elB[0],J.elB[1],aw,aw*0.85,suit);
+  capsule(J.elB[0],J.elB[1],J.haB[0],J.haB[1],aw*0.85,aw*0.75,suit);
+  disc(J.haB[0],J.haB[1],aw*1.35,red);
+  disc(J.haB[0]-facing*aw*0.4,J.haB[1]-aw*0.4,aw*0.5,'#f26a60'); // glove highlight
+  // HEAD (bald)
+  const hd=J.head, hr=13*s;
+  disc(hd[0],hd[1],hr,skin);
+  g.fillStyle=skinSh; g.beginPath(); g.arc(hd[0],hd[1],hr,Math.PI*0.1,Math.PI*0.9); g.fill();
+  disc(hd[0],hd[1],hr*0.99,skin); // re-round front
+  g.fillStyle=skinSh; g.beginPath(); g.arc(hd[0]+facing*3*s,hd[1]+2*s,hr,-Math.PI*0.15,Math.PI*0.45); g.fill();
+  disc(hd[0]-facing*1*s,hd[1]-1*s,hr*0.96,skin);
+  // shine
+  g.fillStyle='rgba(255,255,255,0.65)';
+  g.beginPath(); g.ellipse(hd[0]-facing*4*s,hd[1]-6*s,hr*0.28,hr*0.16,-0.5,0,7); g.fill();
+  // face
+  if(opts.serious){
+    // shadowed eyes, angry
+    g.fillStyle='rgba(20,15,20,0.35)';
+    g.beginPath(); g.arc(hd[0],hd[1]-1*s,hr,Math.PI*0.15,Math.PI*0.85); g.fill();
+    g.strokeStyle='#1a1418'; g.lineWidth=2*s; g.lineCap='round';
+    g.beginPath(); g.moveTo(hd[0]+facing*1*s,hd[1]-1*s); g.lineTo(hd[0]+facing*6*s,hd[1]+1*s); g.stroke();
+    g.beginPath(); g.moveTo(hd[0]+facing*8*s,hd[1]-1*s); g.lineTo(hd[0]+facing*12*s,hd[1]+1*s); g.stroke();
+    disc(hd[0]+facing*4.5*s,hd[1]+2*s,1.6*s,'#fff');
+    disc(hd[0]+facing*10*s,hd[1]+2*s,1.6*s,'#fff');
+  } else {
+    // deadpan: two dot eyes, tiny mouth
+    disc(hd[0]+facing*4*s,hd[1]-1*s,1.7*s,'#241a1a');
+    disc(hd[0]+facing*10*s,hd[1]-1*s,1.7*s,'#241a1a');
+    g.strokeStyle='#b07a58'; g.lineWidth=1.4*s; g.lineCap='round';
+    g.beginPath(); g.moveTo(hd[0]+facing*6*s,hd[1]+6*s); g.lineTo(hd[0]+facing*9*s,hd[1]+6*s); g.stroke();
+  }
+  if(opts.aura) drawAura(cx,cy-20*s,70*s,'#ffd27a',0.5);
+}
+
+/* ============================================================ GOJO */
+function drawGojo(pose,cx,cy,s,facing,rot,opts){
+  opts=opts||{};
+  const J=place(pose,cx,cy,s,facing,rot);
+  const jak='#1c2033', jakSh='#0f1120', jakHi='#2b3252';
+  const skin='#f3d4b6', skinSh='#cfa987', pants='#141726', pantsSh='#0c0e19';
+  const hair='#eef2f8', hairSh='#c2cbdc';
+  const aw=4.8*s, legw=6*s;
+  if(opts.aura) drawAura(cx,cy-20*s,72*s,'#8fe9ff',opts.auraI||0.6);
+  // BACK leg + arm
+  capsule(J.hip[0],J.hip[1],J.knA[0],J.knA[1],legw,legw*0.8,pantsSh);
+  capsule(J.knA[0],J.knA[1],J.ftA[0],J.ftA[1],legw*0.8,legw*0.55,pantsSh);
+  disc(J.ftA[0],J.ftA[1],legw*0.7,'#05060b');
+  capsule(J.shA[0],J.shA[1],J.elA[0],J.elA[1],aw,aw*0.85,jakSh);
+  capsule(J.elA[0],J.elA[1],J.haA[0],J.haA[1],aw*0.85,aw*0.7,jakSh);
+  disc(J.haA[0],J.haA[1],aw*0.9,skinSh);
+  // TORSO (jacket)
+  capsule(J.hip[0],J.hip[1],J.chest[0],J.chest[1],9.5*s,8*s,jak);
+  capsule(J.hip[0]-facing*3*s,J.hip[1],J.chest[0]-facing*3*s,J.chest[1],3*s,3*s,jakHi);
+  // zipper
+  g.strokeStyle='#0a0c16'; g.lineWidth=1.4*s;
+  g.beginPath(); g.moveTo(J.hip[0]+facing*1*s,J.hip[1]); g.lineTo(J.chest[0]+facing*1*s,J.chest[1]); g.stroke();
+  // FRONT leg + arm
+  capsule(J.hip[0],J.hip[1],J.knB[0],J.knB[1],legw,legw*0.8,pants);
+  capsule(J.knB[0],J.knB[1],J.ftB[0],J.ftB[1],legw*0.8,legw*0.55,pants);
+  disc(J.ftB[0],J.ftB[1],legw*0.75,'#07080f');
+  capsule(J.shB[0],J.shB[1],J.elB[0],J.elB[1],aw,aw*0.85,jak);
+  capsule(J.elB[0],J.elB[1],J.haB[0],J.haB[1],aw*0.85,aw*0.72,jak);
+  // fingers sign for cast/charge, else hand
+  disc(J.haB[0],J.haB[1],aw*0.85,skin);
+  // high collar
+  g.fillStyle=jakHi;
+  g.beginPath();
+  g.moveTo(J.neck[0]-facing*7*s,J.neck[1]+4*s);
+  g.lineTo(J.neck[0]+facing*7*s,J.neck[1]+4*s);
+  g.lineTo(J.neck[0]+facing*5*s,J.neck[1]-6*s);
+  g.lineTo(J.neck[0]-facing*5*s,J.neck[1]-6*s);
+  g.closePath(); g.fill();
+  // HEAD
+  const hd=J.head, hr=12.5*s;
+  disc(hd[0],hd[1],hr,skin);
+  g.fillStyle=skinSh; g.beginPath(); g.arc(hd[0]+facing*2*s,hd[1]+1*s,hr,-Math.PI*0.2,Math.PI*0.4); g.fill();
+  disc(hd[0]-facing*1*s,hd[1]-1*s,hr*0.95,skin);
+  // face: blindfold or eyes
+  if(opts.eyes){
+    // six-eyes vibe: two glowing blue eyes
+    g.save();
+    g.shadowColor='#8fe9ff'; g.shadowBlur=10*s;
+    disc(hd[0]+facing*3*s,hd[1]-1*s,2.4*s,'#bfefff');
+    disc(hd[0]+facing*9*s,hd[1]-1*s,2.4*s,'#bfefff');
+    g.restore();
+    disc(hd[0]+facing*3*s,hd[1]-1*s,1.1*s,'#2ea6d8');
+    disc(hd[0]+facing*9*s,hd[1]-1*s,1.1*s,'#2ea6d8');
+    // smirk
+    g.strokeStyle='#b07a58'; g.lineWidth=1.3*s; g.lineCap='round';
+    g.beginPath(); g.moveTo(hd[0]+facing*5*s,hd[1]+6*s); g.quadraticCurveTo(hd[0]+facing*8*s,hd[1]+8*s,hd[0]+facing*11*s,hd[1]+5*s); g.stroke();
+  } else {
+    // blindfold band
+    g.fillStyle='#0c0e15';
+    g.save();
+    g.translate(hd[0],hd[1]-1*s); g.rotate(facing*-0.08);
+    g.fillRect(-hr*1.05,-3.4*s,hr*2.1,6.6*s);
+    g.restore();
+    g.fillStyle='rgba(120,150,190,0.25)';
+    g.fillRect(hd[0]-hr*0.9,hd[1]-2.4*s,hr*1.8,1.4*s);
+    // smirk
+    g.strokeStyle='#b07a58'; g.lineWidth=1.3*s; g.lineCap='round';
+    g.beginPath(); g.moveTo(hd[0]+facing*5*s,hd[1]+6*s); g.quadraticCurveTo(hd[0]+facing*8*s,hd[1]+8*s,hd[0]+facing*11*s,hd[1]+5*s); g.stroke();
+  }
+  // HAIR — spiky swept up
+  drawGojoHair(hd[0],hd[1],hr,s,facing,hair,hairSh);
+}
+function drawGojoHair(hx,hy,hr,s,facing,hair,hairSh){
+  const spikes=[
+    [-1.05,-0.55,-1.5,-1.4,-0.55,-0.9],
+    [-0.6,-0.9,-0.7,-2.0,-0.05,-1.15],
+    [-0.1,-1.05,0.05,-2.2,0.5,-1.1],
+    [0.45,-0.95,0.85,-2.0,0.95,-0.85],
+    [0.85,-0.7,1.5,-1.35,1.05,-0.5],
+    [-1.15,-0.2,-1.75,-0.7,-1.05,0.15],
+    [1.05,-0.15,1.7,-0.55,1.05,0.2]
+  ];
+  g.fillStyle=hairSh;
+  for(const sp of spikes){
+    g.beginPath();
+    g.moveTo(hx+facing*sp[0]*hr, hy+sp[1]*hr);
+    g.lineTo(hx+facing*sp[2]*hr, hy+sp[3]*hr);
+    g.lineTo(hx+facing*sp[4]*hr, hy+sp[5]*hr);
+    g.closePath(); g.fill();
+  }
+  // fill cap
+  g.fillStyle=hair;
+  g.beginPath(); g.arc(hx,hy-2*s,hr*1.02,Math.PI*1.05,Math.PI*1.95); g.fill();
+  g.fillStyle=hair;
+  for(const sp of spikes){
+    g.beginPath();
+    g.moveTo(hx+facing*(sp[0])*hr, hy+(sp[1])*hr);
+    g.lineTo(hx+facing*(sp[2]*0.9)*hr, hy+(sp[3]*0.92)*hr);
+    g.lineTo(hx+facing*(sp[4])*hr, hy+(sp[5])*hr);
+    g.closePath(); g.fill();
+  }
+}
+function drawAura(x,y,r,col,inten){
+  const rgb = col==='#8fe9ff'?'143,233,255':col==='#ffd27a'?'255,210,122':'178,107,255';
+  const fl=0.8+0.2*Math.sin(clock*10);
+  const gr=g.createRadialGradient(x,y,4,x,y,r);
+  gr.addColorStop(0,`rgba(${rgb},${(0.34*inten*fl).toFixed(3)})`);
+  gr.addColorStop(0.5,`rgba(${rgb},${(0.13*inten*fl).toFixed(3)})`);
+  gr.addColorStop(1,`rgba(${rgb},0)`);
+  g.fillStyle=gr; g.beginPath(); g.arc(x,y,r,0,7); g.fill();
+  for(let i=0;i<12;i++){
+    const p=(clock*0.8+srnd(i+Math.floor(x)))%1;
+    const wx=x+Math.sin(clock*2+i*2)*(r*0.3)*(1-p*0.4);
+    const wy=y+r*0.5-p*r*1.2;
+    g.fillStyle=`rgba(${rgb},${(Math.sin(p*Math.PI)*0.6).toFixed(3)})`;
+    g.fillRect(wx,wy,2,3);
+  }
+}
+
+/* ============================================================ ARENA + FX */
+const FAR=[],NEAR=[];
+(function(){ let x=-20,i=0; while(x<W+40){const w=44+srnd(i)*70,h=70+srnd(i+50)*150; FAR.push({x,w,h}); x+=w+3+srnd(i+90)*14; i++;} x=-30;i=200; while(x<W+40){const w=60+srnd(i)*90,h=40+srnd(i+50)*90; NEAR.push({x,w,h}); x+=w+6+srnd(i+90)*18; i++;} })();
+function drawArena(flash){
+  // sky
+  const gr=g.createLinearGradient(0,0,0,GND);
+  gr.addColorStop(0,'#0a0e1c'); gr.addColorStop(0.6,'#111830'); gr.addColorStop(1,'#1b2440');
+  g.fillStyle=gr; g.fillRect(0,0,W,GND);
+  // moon
+  const mg=g.createRadialGradient(760,120,10,760,120,80);
+  mg.addColorStop(0,'rgba(220,228,245,0.9)'); mg.addColorStop(0.3,'rgba(200,212,235,0.5)'); mg.addColorStop(1,'rgba(200,212,235,0)');
+  g.fillStyle=mg; g.beginPath(); g.arc(760,120,80,0,7); g.fill();
+  disc(760,120,34,'#e8edf7');
+  // clouds over moon
+  g.fillStyle='rgba(20,26,44,0.6)';
+  for(let i=0;i<5;i++){ const cxp=(660+i*40+Math.sin(clock*0.2+i)*10); g.beginPath(); g.ellipse(cxp,110+i*6,60,14,0,0,7); g.fill(); }
+  // far buildings
+  g.fillStyle='#0b1120';
+  for(const b of FAR) g.fillRect(b.x,GND-b.h,b.w,b.h);
+  g.fillStyle='rgba(170,200,235,0.4)';
+  for(let i=0;i<40;i++){ const b=FAR[Math.floor(srnd(i+900)*FAR.length)]; if(srnd(i+950)<0.6)continue; g.fillRect(b.x+3+srnd(i+970)*(b.w-6),GND-b.h+4+srnd(i+990)*(b.h-8),2,2); }
+  // red beacons
+  const blink=(Math.sin(clock*2)>0.3)?0.85:0.15;
+  g.fillStyle=`rgba(220,66,66,${blink})`;
+  for(const bi of [4,11,17]){ const b=FAR[bi%FAR.length]; g.fillRect(b.x+b.w/2,GND-b.h-3,3,3); }
+  // near buildings
+  g.fillStyle='#070b16';
+  for(const b of NEAR) g.fillRect(b.x,GND-b.h,b.w,b.h);
+  g.fillStyle='rgba(232,190,122,0.7)';
+  for(let i=0;i<50;i++){ const b=NEAR[Math.floor(srnd(i+700)*NEAR.length)]; if(srnd(i+750)<0.55)continue; g.fillRect(b.x+4+srnd(i+770)*(b.w-8),GND-b.h+5+srnd(i+790)*(b.h-10),2,3); }
+  // street
+  const sg=g.createLinearGradient(0,GND,0,H);
+  sg.addColorStop(0,'#10141f'); sg.addColorStop(1,'#070a12');
+  g.fillStyle=sg; g.fillRect(0,GND,W,H-GND);
+  g.strokeStyle='rgba(120,140,170,0.10)'; g.lineWidth=1;
+  for(let i=0;i<7;i++){ g.beginPath(); g.moveTo(0,GND+8+i*22); g.lineTo(W,GND+8+i*22); g.stroke(); }
+  if(flash){ g.fillStyle=`rgba(240,248,255,${flash})`; g.fillRect(0,0,W,H); }
+}
+function rain(alpha){
+  g.strokeStyle=`rgba(168,186,210,${alpha||0.12})`; g.lineWidth=1;
+  g.beginPath();
+  for(let i=0;i<70;i++){ const x=(srnd(i+1)*W+clock*40)%W; const y=(srnd(i+2)*H+clock*760)%(H+30)-15; g.moveTo(x,y); g.lineTo(x-4,y+14); }
+  g.stroke();
+}
+function speedLines(cxp,cyp,alpha,rot){
+  g.save(); g.translate(cxp,cyp); g.rotate(rot||0);
+  for(let i=0;i<40;i++){ const a=i/40*Math.PI*2+srnd(i)*0.2; const r0=90+srnd(i+9)*40, r1=520; g.strokeStyle=`rgba(240,248,255,${(alpha*(0.3+srnd(i+3)*0.7)).toFixed(3)})`; g.lineWidth=1+srnd(i+5)*2; g.beginPath(); g.moveTo(Math.cos(a)*r0,Math.sin(a)*r0); g.lineTo(Math.cos(a)*r1,Math.sin(a)*r1); g.stroke(); }
+  g.restore();
+}
+function shockRing(x,y,r,alpha,col,squash){ g.strokeStyle=col.replace('A',alpha.toFixed(3)); g.lineWidth=r<40?4:2; g.beginPath(); g.ellipse(x,y,r,r*(squash||1),0,0,7); g.stroke(); }
+function sparks(x,y,t,n,col){ for(let i=0;i<n;i++){ const a=srnd(i)*7, sp=40+srnd(i+3)*140; const px=x+Math.cos(a)*sp*t, py=y+Math.sin(a)*sp*t - 40*t*t*3 + 60*t; const al=Math.max(0,1-t*1.6); g.fillStyle=col.replace('A',al.toFixed(3)); g.fillRect(px,py,2.5,2.5); } }
+function impactFrame(a){ // inverted white burst with radial dark lines
+  g.fillStyle=`rgba(255,255,255,${a})`; g.fillRect(0,0,W,H);
+  g.strokeStyle=`rgba(10,10,16,${a})`; g.lineWidth=3;
+  g.save(); g.translate(W/2,H/2);
+  for(let i=0;i<28;i++){ const an=i/28*7; g.beginPath(); g.moveTo(Math.cos(an)*120,Math.sin(an)*120); g.lineTo(Math.cos(an)*760,Math.sin(an)*760); g.stroke(); }
+  g.restore();
+}
+function dust(x,y,t,spread,rise){ for(let i=0;i<22;i++){ const a=Math.max(0,0.5*(1-t*0.5)); const px=x+(srnd(i)*2-1)*spread*(0.4+t*0.8); const py=y-t*rise*srnd(i+4)-srnd(i+7)*10; const r=(8+srnd(i+2)*20)*(0.5+t); g.fillStyle=`rgba(70,78,98,${a.toFixed(3)})`; g.beginPath(); g.arc(px,py,r,0,7); g.fill(); } }
+
+/* letterbox + caption */
+function bars(){ g.fillStyle='#000'; g.fillRect(0,0,W,BAR); g.fillRect(0,H-BAR,W,BAR); }
+function grain(){ g.fillStyle='rgba(0,0,0,0.04)'; for(let i=0;i<60;i++)g.fillRect(Math.random()*W|0,Math.random()*H|0,1,1); const vg=g.createRadialGradient(W/2,H/2,H*0.4,W/2,H/2,H*0.95); vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.5)'); g.fillStyle=vg; g.fillRect(0,0,W,H); }
+function caption(txt,alpha,y,size,col){
+  g.font=`600 ${size}px ui-sans-serif,system-ui,sans-serif`;
+  g.textAlign='center'; g.textBaseline='middle';
+  const ls=size*0.18; const chars=txt.split(''); let tw=0; g.save();
+  for(const ch of chars) tw+=g.measureText(ch).width+ls; tw-=ls;
+  let x=W/2-tw/2;
+  g.fillStyle=(col||'rgba(224,232,242,A)').replace('A',alpha.toFixed(3));
+  g.textAlign='left';
+  for(const ch of chars){ g.fillText(ch,x,y); x+=g.measureText(ch).width+ls; }
+  g.restore(); g.textAlign='center';
+}
+
+/* ============================================================ CAMERA */
+function withCam(camX,camY,zoom,shake,fn){
+  g.save();
+  const sx=shake?(Math.random()*2-1)*shake:0, sy=shake?(Math.random()*2-1)*shake:0;
+  g.translate(W/2+sx,H/2+sy); g.scale(zoom,zoom); g.translate(-camX,-camY);
+  fn();
+  g.restore();
+}
+
+/* ============================================================ SHOTS */
+// helper: draw full arena world with fighters given poses/positions
+function worldBase(flash,rainA){ drawArena(flash); rain(rainA==null?0.12:rainA); }
+
+// Infinity ripple shield in front of Gojo
+function infinity(x,y,t,facing){
+  for(let k=0;k<3;k++){
+    const p=((t*1.5+k/3)%1);
+    const r=10+p*46;
+    g.strokeStyle=`rgba(143,233,255,${(0.5*(1-p)).toFixed(3)})`;
+    g.lineWidth=2;
+    g.beginPath(); g.arc(x+facing*30,y,r,-1.1,1.1); g.stroke();
+  }
+}
+
+/* -------- SHARED SHOTS (indices 0..5) -------- */
+const gPos=330, sPos=630;
+function shotFaceoff(u){
+  worldBase(0);
+  const push=1+u*0.06;
+  withCam(480,300,push,0,()=>{
+    drawGojo(IDLE,gPos,GND-58,2.0,1,0,{aura:true,auraI:0.35});
+    drawSaitama(IDLE,sPos,GND-58,2.0,-1,0,{});
+  });
+  // single horizontal name line above the bar
+  const av=clamp(u*2,0,1);
+  g.textAlign='center'; g.textBaseline='middle';
+  g.font='700 24px ui-sans-serif,system-ui,sans-serif';
+  g.fillStyle=`rgba(143,233,255,${(0.85*av).toFixed(2)})`; g.fillText('GOJO',W/2-90,H-72);
+  g.font='700 15px ui-sans-serif,system-ui,sans-serif';
+  g.fillStyle=`rgba(190,198,210,${(0.7*av).toFixed(2)})`; g.fillText('VS',W/2,H-70);
+  g.font='700 24px ui-sans-serif,system-ui,sans-serif';
+  g.fillStyle=`rgba(255,210,122,${(0.85*av).toFixed(2)})`; g.fillText('SAITAMA',W/2+96,H-72);
+}
+const CAP1=H-104, CAP2=H-80, CAP3=H-58, CAPS=H-72;
+function shotDash(u){
+  worldBase(u>0.85?(u-0.85)/0.15*0.8:0);
+  once('dash',whoosh);
+  const meet=easeIn(u);
+  const gx=lerp(gPos,428,meet), sx=lerp(sPos,532,meet);
+  withCam(480,300,1.15,u>0.85?8:0,()=>{
+    // dash trails
+    for(let i=1;i<=4;i++){ g.globalAlpha=0.12*(1-i/5); drawGojo(DASH,gx-40*i,GND-58,2.0,1,0.15,{}); }
+    for(let i=1;i<=4;i++){ g.globalAlpha=0.12*(1-i/5); drawSaitama(DASH,sx+40*i,GND-58,2.0,-1,-0.15,{}); }
+    g.globalAlpha=1;
+    drawGojo(DASH,gx,GND-58,2.0,1,0.12,{});
+    drawSaitama(DASH,sx,GND-58,2.0,-1,-0.12,{});
+    if(u>0.82){ const st=(u-0.82)/0.18; disc(480,GND-70,10+st*40,`rgba(255,255,255,${(0.9*(1-st)).toFixed(3)})`); sparks(480,GND-70,st,20,'rgba(200,230,255,A)'); }
+  });
+}
+function shotExchange(u){
+  worldBase(0);
+  // three punch beats alternating
+  const beat=u*3; const bi=Math.floor(beat); const bt=beat-bi;
+  const attackerGojo = bi%2===0;
+  const hitAt=0.55;
+  withCam(480,300,1.28,bt<hitAt+0.12&&bt>hitAt?6:0,()=>{
+    let gp,sp;
+    if(attackerGojo){ gp=bt<hitAt?lp(DASH,PUNCH,easeIn(bt/hitAt)):lp(PUNCH,DASH,(bt-hitAt)/(1-hitAt)); sp=lp(IDLE,BLOCK,clamp(bt/hitAt,0,1)); }
+    else { sp=bt<hitAt?lp(DASH,PUNCH,easeIn(bt/hitAt)):lp(PUNCH,DASH,(bt-hitAt)/(1-hitAt)); gp=lp(IDLE,BLOCK,clamp(bt/hitAt,0,1)); }
+    drawGojo(gp,422,GND-58,2.0,1,0,{aura:attackerGojo,auraI:0.3});
+    drawSaitama(sp,538,GND-58,2.0,-1,0,{});
+    if(Math.abs(bt-hitAt)<0.1){ const st=Math.abs(bt-hitAt)/0.1; const hx=attackerGojo?512:448,hy=GND-96; disc(hx,hy,16*(1-st),`rgba(255,240,200,${(0.9*(1-st)).toFixed(3)})`); sparks(hx,hy,st+0.05,16,'rgba(255,220,150,A)'); once('ex'+bi,()=>hit(false)); }
+  });
+}
+function shotClose(u){
+  worldBase(0,0.08);
+  // intercut: first half Gojo smirk, second Saitama deadpan, slow push
+  if(u<0.5){ const z=lerp(2.6,3.0,u/0.5); withCam(gPos+8,GND-108,z,0,()=>{ drawGojo(IDLE,gPos,GND-58,2.0,1,0,{}); }); caption('...',0.4,CAPS,20,'rgba(143,233,255,A)'); }
+  else { const z=lerp(2.6,3.0,(u-0.5)/0.5); withCam(sPos-8,GND-108,z,0,()=>{ drawSaitama(IDLE,sPos,GND-58,2.0,-1,0,{}); }); }
+}
+function shotPOV(u){
+  // Saitama's red fist toward camera; Gojo POV
+  worldBase(0,0.05);
+  g.fillStyle='rgba(4,6,12,0.5)'; g.fillRect(0,0,W,H);
+  speedLines(W/2,H/2,0.5*Math.min(1,u*2),0);
+  once('pov',whoosh);
+  const grow=easeIn(u);
+  const fx=lerp(W/2-150,W/2-20,grow), fy=lerp(H/2-30,H/2+10,grow), fr=lerp(26,175,grow);
+  // shadowed Saitama behind the fist
+  g.globalAlpha=clamp(1-u*1.4,0,1)*0.5; drawSaitama(PUNCH,W/2+140,H/2+150,2.2,-1,0,{serious:true}); g.globalAlpha=1;
+  // arm
+  g.strokeStyle='#c99a24'; g.lineWidth=fr*0.7; g.lineCap='round';
+  g.beginPath(); g.moveTo(W/2+170,H/2+180); g.lineTo(fx,fy); g.stroke();
+  g.strokeStyle='#a8801e'; g.lineWidth=fr*0.72;
+  g.beginPath(); g.moveTo(W/2+170,H/2+180); g.lineTo(fx+fr*0.2,fy+fr*0.2); g.stroke();
+  disc(fx,fy,fr,'#d8352c');
+  // knuckle creases
+  g.strokeStyle='rgba(120,20,16,0.7)'; g.lineWidth=fr*0.06; g.lineCap='round';
+  for(let k=-1;k<=1;k++){ g.beginPath(); g.moveTo(fx-fr*0.5+k*fr*0.35,fy-fr*0.5); g.lineTo(fx-fr*0.3+k*fr*0.35,fy-fr*0.1); g.stroke(); }
+  disc(fx-fr*0.32,fy-fr*0.34,fr*0.4,'#f26a60');
+  g.strokeStyle='rgba(160,30,24,0.6)'; g.lineWidth=3;
+  g.beginPath(); g.arc(fx,fy,fr*0.72,0,7); g.stroke();
+  if(u>0.88) impactFrame((u-0.88)/0.12*0.9);
+}
+
+/* -------- SAITAMA ENDING -------- */
+function sa_infinityStop(u){
+  worldBase(0);
+  withCam(480,300,1.32,0,()=>{
+    // Saitama punches, stops on Gojo's infinity ripple
+    const beat=u*2, bi=Math.floor(beat), bt=beat-bi;
+    const sp=bt<0.5?lp(DASH,PUNCH,easeIn(bt/0.5)):lp(PUNCH,DASH,(bt-0.5)/0.5);
+    drawGojo(lp(IDLE,BLOCK,0.4),440,GND-58,2.0,1,0,{aura:true,auraI:0.4});
+    drawSaitama(sp,548,GND-58,2.0,-1,0,{});
+    infinity(440,GND-96,u*3+bi,1);
+    if(Math.abs(bt-0.5)<0.12){ once('inf'+bi,()=>hit(false)); sparks(482,GND-96,Math.abs(bt-0.5)/0.12,12,'rgba(143,233,255,A)'); }
+  });
+  caption('INFINITY',clamp(u*2-0.5,0,1)*0.5,CAPS,16,'rgba(143,233,255,A)');
+}
+function sa_windup(u){
+  worldBase(0,0.06);
+  once('serious',()=>rumble(1.6));
+  // slow push on serious Saitama, pulling fist back
+  const z=lerp(1.8,2.4,easeOut(u));
+  withCam(545,GND-92,z,u>0.7?2:0,()=>{
+    drawGojo(lp(IDLE,STAGGER,0.2),470,GND-58,2.0,1,0,{});
+    const sp=lp(IDLE,DASH,0.3);
+    // pull back arm exaggerated
+    sp.shB=[ -6,-30]; sp.elB=[-18,-26]; sp.haB=[-30,-24];
+    drawSaitama(sp,sPos,GND-58,2.0,-1,0,{serious:true});
+  });
+  // gathering air
+  g.strokeStyle=`rgba(200,220,255,${(0.3*u).toFixed(3)})`; g.lineWidth=2;
+  for(let i=0;i<6;i++){ const r=(1-((clock*0.6+i/6)%1))*80; g.beginPath(); g.arc(sPos*1.0+80,GND-96,r,0,7); g.stroke(); }
+  caption('...',0.5,CAPS,20,'rgba(220,220,230,A)');
+}
+function sa_punch(u){
+  // THE serious punch — wide, horizontal shockwave splits clouds, Gojo blasted
+  if(u<0.12){ worldBase(0); impactFrame((0.12-u)/0.12*0.95); once('spunch',()=>{hit(true);rumble(1.4);}); return; }
+  const uu=(u-0.12)/0.88;
+  worldBase(uu<0.1?(0.1-uu)/0.1*0.6:0);
+  const shk=Math.max(0,14*(1-uu*1.4));
+  withCam(480,300,1.05,shk,()=>{
+    // horizontal shockwave
+    const sw=easeOut(uu);
+    const bw=sw*900;
+    const gg=g.createLinearGradient(sPos-bw,0,sPos,0);
+    gg.addColorStop(0,'rgba(255,255,255,0)'); gg.addColorStop(0.7,`rgba(230,240,255,${(0.5*(1-uu)).toFixed(3)})`); gg.addColorStop(1,`rgba(255,255,255,${(0.8*(1-uu)).toFixed(3)})`);
+    g.fillStyle=gg;
+    g.beginPath(); g.moveTo(sPos,GND-96); g.lineTo(sPos-bw,GND-96-90*sw); g.lineTo(sPos-bw,GND-96+90*sw); g.closePath(); g.fill();
+    // ring
+    shockRing(sPos-20,GND-96,20+sw*300,0.6*(1-uu),'rgba(255,255,255,A)',0.5);
+    // Saitama fully extended
+    drawSaitama(PUNCH,sPos,GND-58,2.0,-1,0,{serious:true});
+    // Gojo flung left
+    const gx=lerp(470,90,easeOut(uu)), gy=GND-58-Math.sin(uu*Math.PI)*70;
+    const rot=-uu*4;
+    drawGojo(STAGGER,gx,gy,2.0,1,rot,{});
+    if(uu>0.7){ dust(120,GND-30,(uu-0.7)/0.3,60,80); }
+  });
+  caption('ONE PUNCH.',clamp(uu*2-0.4,0,1)*0.85,CAP1,30,'rgba(255,230,180,A)');
+}
+function sa_ko(u){
+  worldBase(0,0.1);
+  withCam(300,300,1.2,0,()=>{
+    dust(150,GND-20,clamp(1-u,0,1),50,40);
+    // rubble
+    g.fillStyle='#0a0d15'; for(let i=0;i<8;i++){ g.fillRect(90+srnd(i)*140,GND-6-srnd(i+2)*10,8+srnd(i+3)*14,8); }
+    drawGojo(KO,150,GND-12,2.0,1,0,{});
+    // Saitama stands far, victorious calm
+    drawSaitama(IDLE,560,GND-58,1.7,-1,0,{});
+  });
+  caption('K.O.',clamp(u*2,0,1)*0.9,CAP1,40,'rgba(255,230,180,A)');
+  caption('SAITAMA WINS',clamp(u*2-0.5,0,1)*0.8,CAP2,20,'rgba(255,210,122,A)');
+  if(u>0.7) caption('CLICK TO REPLAY',(0.3+0.2*Math.sin(clock*3))*clamp((u-0.7)/0.3,0,1),CAP3,13,'rgba(150,165,185,A)');
+}
+
+/* -------- GOJO ENDING -------- */
+function go_infinityStop(u){
+  worldBase(0);
+  withCam(480,300,1.32,0,()=>{
+    const beat=u*2, bi=Math.floor(beat), bt=beat-bi;
+    const sp=bt<0.5?lp(DASH,PUNCH,easeIn(bt/0.5)):lp(PUNCH,DASH,(bt-0.5)/0.5);
+    drawGojo(lp(IDLE,BLOCK,0.3),440,GND-58,2.0,1,0,{aura:true,auraI:0.5});
+    drawSaitama(sp,548,GND-58,2.0,-1,0,{serious:bi>0});
+    infinity(440,GND-96,u*3+bi,1);
+    if(Math.abs(bt-0.5)<0.12){ once('ginf'+bi,()=>hit(false)); sparks(482,GND-96,Math.abs(bt-0.5)/0.12,12,'rgba(143,233,255,A)'); }
+  });
+  caption('INFINITY',clamp(u*2-0.5,0,1)*0.5,CAPS,16,'rgba(143,233,255,A)');
+}
+function go_charge(u){
+  worldBase(0,0.08);
+  once('charge',()=>charge(3.2));
+  // Gojo floats up, blindfold off, charges hollow purple
+  const rise=easeOut(clamp(u*1.4,0,1));
+  const gy=GND-58-rise*48;
+  withCam(430,332,1.32+u*0.12,u>0.9?3:0,()=>{
+    drawSaitama(lp(IDLE,BLOCK,0.4),620,GND-58,2.0,-1,0,{serious:true});
+    drawGojo(u<0.4?FLOAT:CHARGE,gPos,gy,2.0,1,0,{aura:true,auraI:0.5+u*0.5,eyes:u>0.25});
+    // sphere between hands
+    const hx=gPos+30, hy=gy-26;
+    const grow=clamp((u-0.35)/0.5,0,1);
+    if(grow>0){
+      // blue orb + red orb converge into purple
+      const conv=clamp((u-0.45)/0.3,0,1);
+      const sep=(1-conv)*22;
+      const br=6+grow*10;
+      g.save(); g.globalCompositeOperation='lighter';
+      // blue
+      let bg=g.createRadialGradient(hx-sep,hy,1,hx-sep,hy,br); bg.addColorStop(0,'rgba(150,220,255,0.95)'); bg.addColorStop(1,'rgba(60,120,255,0)'); g.fillStyle=bg; g.beginPath(); g.arc(hx-sep,hy,br,0,7); g.fill();
+      // red
+      let rg=g.createRadialGradient(hx+sep,hy,1,hx+sep,hy,br); rg.addColorStop(0,'rgba(255,150,170,0.95)'); rg.addColorStop(1,'rgba(230,40,60,0)'); g.fillStyle=rg; g.beginPath(); g.arc(hx+sep,hy,br,0,7); g.fill();
+      // purple core when converged
+      if(conv>0){ const pr=br*(1+conv*1.4); let pg=g.createRadialGradient(hx,hy,1,hx,hy,pr*2); pg.addColorStop(0,'rgba(240,220,255,0.98)'); pg.addColorStop(0.4,`rgba(178,107,255,${(0.9*conv).toFixed(2)})`); pg.addColorStop(1,'rgba(122,47,240,0)'); g.fillStyle=pg; g.beginPath(); g.arc(hx,hy,pr*2,0,7); g.fill(); }
+      g.restore();
+      // drawn-in particles
+      for(let i=0;i<18;i++){ const p=(clock*0.9+srnd(i))%1; const ang=srnd(i+2)*7; const rr=(1-p)*70+br; const px=hx+Math.cos(ang)*rr, py=hy+Math.sin(ang)*rr; g.fillStyle=`rgba(200,160,255,${(p*0.7).toFixed(3)})`; g.fillRect(px,py,2,2); }
+    }
+  });
+  caption('HOLLOW...',clamp(u*2-1,0,1)*0.6,CAPS,18,'rgba(178,107,255,A)');
+}
+function go_beam(u){
+  if(u<0.1){ worldBase(0); impactFrame((0.1-u)/0.1*0.9); once('fire',()=>{beam();rumble(1.3);}); return; }
+  const uu=(u-0.1)/0.9;
+  worldBase(0);
+  const shk=Math.max(0,12*(1-uu));
+  const gy=GND-58-40;
+  withCam(480,300,1.05,shk,()=>{
+    drawGojo(CAST,gPos,gy,2.0,1,0,{aura:true,auraI:1,eyes:true});
+    // beam
+    const hx=gPos+42, hy=gy-24;
+    const reach=easeOut(clamp(uu*1.6,0,1));
+    const bx=lerp(hx,980,reach);
+    const bw=26+Math.sin(clock*30)*4;
+    g.save(); g.globalCompositeOperation='lighter';
+    const bg=g.createLinearGradient(0,hy-bw,0,hy+bw);
+    bg.addColorStop(0,'rgba(122,47,240,0)'); bg.addColorStop(0.5,`rgba(200,150,255,${(0.95).toFixed(2)})`); bg.addColorStop(1,'rgba(122,47,240,0)');
+    g.fillStyle=bg; g.fillRect(hx,hy-bw,bx-hx,bw*2);
+    // white core
+    g.fillStyle='rgba(255,245,255,0.95)'; g.fillRect(hx,hy-bw*0.3,bx-hx,bw*0.6);
+    // muzzle glow
+    const mg=g.createRadialGradient(hx,hy,2,hx,hy,50); mg.addColorStop(0,'rgba(230,210,255,0.95)'); mg.addColorStop(1,'rgba(178,107,255,0)'); g.fillStyle=mg; g.beginPath(); g.arc(hx,hy,50,0,7); g.fill();
+    g.restore();
+    // trench glow on ground
+    g.fillStyle=`rgba(178,107,255,${(0.4*reach).toFixed(3)})`; g.fillRect(hx,GND-4,bx-hx,10);
+    // Saitama blasted down into crater
+    if(reach>0.5){ const st=(reach-0.5)/0.5; const sx=lerp(620,660,st), sy=GND-58+st*30; drawSaitama(STAGGER,sx,sy,2.0,-1,st*1.5,{serious:true}); dust(650,GND-20,st,50,50); }
+    else drawSaitama(lp(BLOCK,STAGGER,0.5),620,GND-58,2.0,-1,0,{serious:true});
+  });
+  caption('HOLLOW PURPLE.',clamp(uu*2-0.4,0,1)*0.85,CAP1,28,'rgba(200,150,255,A)');
+}
+function go_ko(u){
+  worldBase(0,0.08);
+  withCam(560,300,1.2,0,()=>{
+    // glowing trench
+    g.fillStyle=`rgba(178,107,255,${(0.2+0.1*Math.sin(clock*2)).toFixed(3)})`; g.fillRect(500,GND-3,460,8);
+    dust(660,GND-16,clamp(1-u,0,1),50,36);
+    g.fillStyle='#0a0d15'; for(let i=0;i<8;i++){ g.fillRect(600+srnd(i)*140,GND-6-srnd(i+2)*8,8+srnd(i+3)*12,8); }
+    drawSaitama(KO,660,GND-12,2.0,-1,0,{});
+    drawGojo(IDLE,360,GND-58,1.7,1,0,{aura:true,auraI:0.4,eyes:true});
+  });
+  caption('K.O.',clamp(u*2,0,1)*0.9,CAP1,40,'rgba(200,150,255,A)');
+  caption('GOJO WINS',clamp(u*2-0.5,0,1)*0.8,CAP2,20,'rgba(178,107,255,A)');
+  if(u>0.7) caption('CLICK TO REPLAY',(0.3+0.2*Math.sin(clock*3))*clamp((u-0.7)/0.3,0,1),CAP3,13,'rgba(150,165,185,A)');
+}
+
+/* ============================================================ TIMELINE */
+const SHARED=[
+  {d:3.0,f:shotFaceoff},
+  {d:1.6,f:shotDash},
+  {d:3.2,f:shotExchange},
+  {d:2.2,f:shotClose},
+  {d:2.0,f:shotPOV},
+];
+const SA=[...SHARED,
+  {d:2.6,f:sa_infinityStop},
+  {d:2.2,f:sa_windup},
+  {d:2.6,f:sa_punch},
+  {d:4.0,f:sa_ko},
+];
+const GO=[...SHARED,
+  {d:2.6,f:go_infinityStop},
+  {d:4.2,f:go_charge},
+  {d:2.4,f:go_beam},
+  {d:4.0,f:go_ko},
+];
+function timeline(){ return ENDING==='gojo'?GO:SA; }
+function totalDur(){ return timeline().reduce((a,s)=>a+s.d,0); }
+
+/* ============================================================ STATE + LOOP */
+let state = AUTO ? 'play' : 'title';
+if(AUTO && !ENDING) ENDING='saitama';
+let clock=0;      // global time for procedural fx
+let playT=0;      // timeline playback time
+let titleBtns=[];
+
+function renderTitle(){
+  drawArena(0); rain(0.1);
+  withCam(480,300,1.0,0,()=>{
+    drawGojo(IDLE,165,GND-52,1.85,1,0,{aura:true,auraI:0.4});
+    drawSaitama(IDLE,795,GND-52,1.85,-1,0,{});
+  });
+  bars();
+  // Title row: GOJO  VS  SAITAMA
+  g.font='700 44px ui-sans-serif,system-ui,sans-serif'; g.textAlign='center'; g.textBaseline='middle';
+  g.fillStyle='rgba(143,233,255,0.95)'; g.fillText('GOJO',330,150);
+  g.fillStyle='rgba(200,205,215,0.7)'; g.font='700 24px ui-sans-serif,system-ui,sans-serif'; g.fillText('VS',480,152);
+  g.fillStyle='rgba(255,210,122,0.95)'; g.font='700 44px ui-sans-serif,system-ui,sans-serif'; g.fillText('SAITAMA',650,150);
+  caption('CHOOSE THE ENDING',0.6,196,15,'rgba(180,190,205,A)');
+  // buttons
+  titleBtns=[
+    {x:W/2-215,y:230,w:200,h:52,label:'SAITAMA WINS',col:'#ffd27a',end:'saitama'},
+    {x:W/2+15,y:230,w:200,h:52,label:'GOJO WINS',col:'#b26bff',end:'gojo'},
+  ];
+  g.textAlign='center'; g.textBaseline='middle';
+  for(const b of titleBtns){
+    g.fillStyle='rgba(255,255,255,0.04)'; g.strokeStyle=b.col.replace(')',',0.7)').replace('#','rgba(').length?hexA(b.col,0.7):b.col;
+    roundRect(b.x,b.y,b.w,b.h,10); g.fill();
+    g.lineWidth=1.5; g.strokeStyle=hexA(b.col,0.8); roundRect(b.x,b.y,b.w,b.h,10); g.stroke();
+    g.fillStyle=hexA(b.col,0.95); g.font='600 16px ui-sans-serif,system-ui,sans-serif';
+    g.fillText(b.label,b.x+b.w/2,b.y+b.h/2);
+  }
+  g.fillStyle='rgba(150,165,185,0.5)'; g.font='12px ui-monospace,monospace';
+  g.fillText('♪ SOUND ON',W/2,320);
+  grain();
+}
+function hexA(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
+function roundRect(x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+
+function renderPlay(){
+  const tl=timeline(); let acc=0, cur=tl[tl.length-1], u=1;
+  for(const s of tl){ if(playT<acc+s.d){ cur=s; u=(playT-acc)/s.d; break; } acc+=s.d; }
+  u=clamp(u,0,1);
+  cur.f(u);
+  bars(); grain();
+}
+
+function frame(dt){
+  clock+=dt;
+  if(state==='play'){ playT+=dt; if(playT>=totalDur()) playT=totalDur()-0.001; renderPlay(); }
+  else renderTitle();
+}
+
+/* fast-forward for screenshots */
+const SKIP=parseFloat(Q.get('t')||'0');
+if(SKIP>0){ state='play'; if(!ENDING)ENDING='saitama'; const steps=Math.floor(SKIP*60); for(let i=0;i<steps;i++){ clock+=1/60; } playT=SKIP; }
+
+let last=performance.now();
+function loop(now){ const dt=Math.min(0.05,(now-last)/1000); last=now; frame(dt); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+
+/* input */
+function toCanvas(e){ const r=cv.getBoundingClientRect(); return [ (e.clientX-r.left)/r.width*W, (e.clientY-r.top)/r.height*H ]; }
+cv.addEventListener('click',e=>{
+  initAudio();
+  if(state==='title'){
+    const [mx,my]=toCanvas(e);
+    let picked=null;
+    for(const b of titleBtns){ if(mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h) picked=b.end; }
+    ENDING=picked||'saitama'; state='play'; playT=0; audioFired={};
+  } else {
+    // replay only after it's basically over
+    if(playT>=totalDur()-0.01){ state='title'; audioFired={}; }
+  }
+});
+</script>
+</body>
+</html>
