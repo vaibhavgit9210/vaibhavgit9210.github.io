@@ -185,6 +185,7 @@ const NASA_KEY = (function(){ var k = '__NASA_KEY__'; return k.indexOf('__') ===
 const API = {
   iss:    'https://api.wheretheiss.at/v1/satellites/25544',
   issFut: ts => 'https://api.wheretheiss.at/v1/satellites/25544/positions?timestamps=' + ts.join(',') + '&units=kilometers',
+  issGeo: (lat, lon) => 'https://api.wheretheiss.at/v1/coordinates/' + lat.toFixed(2) + ',' + lon.toFixed(2),
   launch: 'https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=5&mode=list',
   astro:  'https://ll.thespacedevs.com/2.2.0/astronaut/?in_space=true&limit=30',
   apod:   'https://api.nasa.gov/planetary/apod?api_key=' + NASA_KEY
@@ -296,6 +297,21 @@ function renderError(p, apiName, staleRec, opts = {}) {
 /* ---------- ISS panel ---------- */
 const track = { past: store.get('track') || [], future: [] };
 
+/* reverse-geocode the ground point to a country, throttled to one call / 30 s */
+let overName = null, lastGeoAt = 0;
+const regionNames = (typeof Intl.DisplayNames === 'function') ? new Intl.DisplayNames(['en'], { type: 'region' }) : null;
+async function loadOverCountry(lat, lon) {
+  if (Date.now() - lastGeoAt < 30000) return;
+  lastGeoAt = Date.now();
+  try {
+    const j = await fetch(API.issGeo(lat, lon)).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+    const cc = j && j.country_code;
+    overName = (cc && cc !== '??' && regionNames) ? regionNames.of(cc) : 'international waters';
+  } catch (e) { /* keep the last known name */ }
+  const el = $('iss-over');
+  if (el && overName) el.textContent = overName;
+}
+
 function validISS(d) {
   return d && Number.isFinite(d.latitude) && Number.isFinite(d.longitude) &&
     d.latitude >= -90 && d.latitude <= 90 && Number.isFinite(d.altitude) && Number.isFinite(d.velocity);
@@ -336,7 +352,7 @@ function renderISS(rec) {
     R('LAT', d.latitude.toFixed(4), '&deg;') + R('LON', d.longitude.toFixed(4), '&deg;') +
     R('ALT', d.altitude.toFixed(1), 'km') + R('VEL', Math.round(d.velocity).toLocaleString('en-US'), 'km/h') +
     '</div>' +
-    '<div class="over-line">sunlight: <b>' + esc(d.visibility || '?') + '</b> · ground track: <b style="color:var(--cyan)">past 45 min</b> / <b style="color:var(--violet)">predicted +45 min</b></div>';
+    '<div class="over-line">over: <b id="iss-over">' + (overName ? esc(overName) : '&hellip;') + '</b> · sunlight: <b>' + esc(d.visibility || '?') + '</b> · ground track: <b style="color:var(--cyan)">past 45 min</b> / <b style="color:var(--violet)">predicted +45 min</b></div>';
 }
 
 /* ---------- humans panel ---------- */
@@ -453,6 +469,7 @@ async function loadISS() {
       }
     }
     renderISS(rec);
+    loadOverCountry(rec.data.latitude, rec.data.longitude);
   } catch (e) {
     const stale = store.get('iss');
     renderError('iss', 'api.wheretheiss.at', stale);
