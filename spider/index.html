@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stick Spider — procedural IK crawl</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #08080c; overflow: hidden; }
+  canvas { display: block; margin: 0 auto; background: #08080c; }
+  #ui {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 6px; z-index: 2;
+  }
+  #ui button {
+    font: 12px/1 monospace; letter-spacing: 1px; text-transform: uppercase;
+    color: #8b8b99; background: rgba(20,20,28,0.85);
+    border: 1px solid #2a2a36; border-radius: 4px;
+    padding: 6px 12px; cursor: pointer;
+  }
+  #ui button.on { color: #e4ee7a; border-color: #cbe36b; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <button data-mode="live">live</button>
+  <button data-mode="follow">follow</button>
+  <button data-mode="mixed" class="on">mixed</button>
+  <button id="snd" class="on">sound</button>
+</div>
+<canvas id="c"></canvas>
+<script>
+'use strict';
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+// ---------- portrait 9:16 stage ----------
+let W, H, S; // S = scale unit
+function resize() {
+  const ratio = 9 / 16;
+  let h = window.innerHeight, w = h * ratio;
+  if (w > window.innerWidth) { w = window.innerWidth; h = w / ratio; }
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  W = w; H = h; S = Math.min(W, H) / 8;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ---------- random helpers ----------
+const rand = (a, b) => a + Math.random() * (b - a);
+const gauss = () => (Math.random() + Math.random() + Math.random() + Math.random() - 2) / 2; // ~N(0, .29)
+const expo = mean => -Math.log(1 - Math.random()) * mean;      // Poisson inter-arrival time
+const levy = (min, alpha, cap) => Math.min(cap, min * Math.pow(1 - Math.random(), -1 / alpha));
+
+// 1D value noise: smooth coherent wander signal
+function makeNoise() {
+  const vals = Array.from({ length: 256 }, () => Math.random() * 2 - 1);
+  return t => {
+    const i = Math.floor(t), f = t - i;
+    const u = f * f * (3 - 2 * f);
+    return vals[i & 255] * (1 - u) + vals[(i + 1) & 255] * u;
+  };
+}
+const headingNoise = makeNoise();
+
+// ---------- mouse target ----------
+const mouse = { x: W / 2, y: H / 2, t: -1e9 }; // t = last activity, in rAF seconds
+function pointTo(e) {
+  if (e.target && e.target.closest && e.target.closest('#ui')) return;
+  const r = canvas.getBoundingClientRect();
+  mouse.x = e.clientX - r.left;
+  mouse.y = e.clientY - r.top;
+  mouse.t = performance.now() / 1000;
+}
+window.addEventListener('pointermove', pointTo);
+window.addEventListener('pointerdown', pointTo);
+
+// ---------- modes ----------
+let mode = 'mixed'; // 'live' | 'follow' | 'mixed'
+const ui = document.getElementById('ui');
+function setMode(next) {
+  mode = next;
+  for (const b of ui.querySelectorAll('button[data-mode]'))
+    b.classList.toggle('on', b.dataset.mode === mode);
+}
+ui.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b && b.dataset.mode) setMode(b.dataset.mode);
+});
+window.addEventListener('keydown', e => {
+  if (e.key === 'm' || e.key === 'M') {
+    const order = ['live', 'follow', 'mixed'];
+    setMode(order[(order.indexOf(mode) + 1) % order.length]);
+  }
+});
+
+// ---------- sound: one footstep tick per leg landing ----------
+let audio = null, soundOn = true;
+function ensureAudio() {
+  if (!soundOn) return;
+  if (!audio) {
+    const actx = new (window.AudioContext || window.webkitAudioContext)();
+    const master = actx.createGain();
+    master.gain.value = 0.5;
+    master.connect(actx.destination);
+    audio = { ctx: actx, master };
+  }
+  if (audio.ctx.state === 'suspended') audio.ctx.resume();
+}
+window.addEventListener('pointerdown', ensureAudio);
+window.addEventListener('keydown', ensureAudio);
+const sndBtn = document.getElementById('snd');
+sndBtn.addEventListener('click', () => {
+  soundOn = !soundOn;
+  sndBtn.classList.toggle('on', soundOn);
+  ensureAudio();
+});
+
+function footstep(leg) {
+  if (!soundOn || !audio || audio.ctx.state !== 'running') return;
+  const a = audio.ctx, t0 = a.currentTime;
+  const osc = a.createOscillator();
+  osc.type = 'triangle';
+  const f = leg.pitch * rand(0.95, 1.05);
+  osc.frequency.setValueAtTime(f, t0);
+  osc.frequency.exponentialRampToValueAtTime(f * 0.55, t0 + 0.05); // downward "tap"
+  const g = a.createGain();
+  const loud = spider.state === 'dart' ? 0.11 : 0.06;
+  g.gain.setValueAtTime(loud, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.06);
+  osc.connect(g);
+  if (a.createStereoPanner) {
+    const pan = a.createStereoPanner();
+    pan.pan.value = leg.side * 0.6; // left legs in the left ear
+    g.connect(pan); pan.connect(audio.master);
+  } else {
+    g.connect(audio.master);
+  }
+  osc.start(t0); osc.stop(t0 + 0.08);
+}
+
+// ---------- spider state ----------
+const spider = {
+  x: 0, y: 0,           // set after resize
+  heading: rand(0, Math.PI * 2),
+  targetHeading: 0,
+  speed: 0, targetSpeed: 0,
+  state: 'pause', stateUntil: 0,
+  fidgetAt: 0,
+};
+spider.x = W / 2; spider.y = H / 2;
+spider.targetHeading = spider.heading;
+
+// Markov transition tables: state -> [[next, prob], ...]
+const TRANSITIONS = {
+  pause: [['creep', 0.55], ['dart', 0.30], ['pause', 0.15]],
+  creep: [['pause', 0.50], ['dart', 0.20], ['creep', 0.30]],
+  dart:  [['pause', 0.70], ['creep', 0.30]],
+};
+function pickNext(state) {
+  let r = Math.random();
+  for (const [next, p] of TRANSITIONS[state]) { r -= p; if (r <= 0) return next; }
+  return 'pause';
+}
+
+function enterState(next, t) {
+  spider.state = next;
+  if (next === 'pause') {
+    spider.targetSpeed = 0;
+    spider.stateUntil = t + expo(1.3);
+  } else if (next === 'creep') {
+    spider.targetSpeed = S * rand(0.5, 1.1);
+    spider.targetHeading = spider.heading + gauss() * 2.2;
+    spider.stateUntil = t + expo(1.8);
+  } else { // dart: Lévy-flight distance, fast burst
+    const dist = levy(S * 1.5, 1.4, S * 6);
+    spider.targetSpeed = S * rand(3.2, 4.6);
+    spider.targetHeading = spider.heading + gauss() * 4.0;
+    spider.stateUntil = t + dist / spider.targetSpeed;
+  }
+}
+
+// ---------- legs: FABRIK chains with planted feet ----------
+const N_SEG = 5;
+const legs = [];
+(function buildLegs() {
+  // per-row shoulder x (along body) and home foot offsets, in units of S
+  const shoulderX = [0.42, 0.15, -0.15, -0.42];
+  const homeX = [1.0, 0.4, -0.3, -0.9];
+  const homeY = [1.05, 1.3, 1.3, 1.1];
+  for (let side = -1; side <= 1; side += 2) {
+    for (let i = 0; i < 4; i++) {
+      const shoulder = [shoulderX[i] * S, side * 0.22 * S];
+      const home = [homeX[i] * S, side * homeY[i] * S];
+      const reach = Math.hypot(home[0] - shoulder[0], home[1] - shoulder[1]);
+      const segLen = (reach * 1.25) / N_SEG;
+      legs.push({
+        side, group: (i + (side > 0 ? 1 : 0)) % 2, // tetrapod gait groups
+        pitch: 900 + (i + (side > 0 ? 4 : 0)) * 85, // each of the 8 legs gets its own note
+        shoulder, home, segLen,
+        foot: null, joints: null,
+        stepThresh: rand(0.38, 0.6) * S,
+        stepping: false, stepFrom: null, stepTo: null, stepT0: 0, stepDur: 0,
+      });
+    }
+  }
+})();
+
+const rot = (p, a) => [p[0] * Math.cos(a) - p[1] * Math.sin(a), p[0] * Math.sin(a) + p[1] * Math.cos(a)];
+const toWorld = p => { const r = rot(p, spider.heading); return [spider.x + r[0], spider.y + r[1]]; };
+let homeScale = 1; // >1 during the "stretch" expression: legs splay outward
+const homeWorld = leg => toWorld([leg.home[0] * homeScale, leg.home[1] * homeScale]);
+
+// ---------- boredom expressions (mixed mode, pointer stuck in place) ----------
+const bored = { kind: null, until: 0, dir: 1, leg: null, nextTapAt: 0 };
+const emote = { char: '', until: 0 };
+const say = (char, t, dur) => { emote.char = char; emote.until = t + dur; };
+
+function pickExpression(t) {
+  const kinds = ['pause', 'pause', 'orbit', 'tap', 'stretch'];
+  bored.kind = kinds[Math.floor(Math.random() * kinds.length)];
+  bored.dir = Math.random() < 0.5 ? -1 : 1;
+  if (bored.kind === 'pause') bored.until = t + expo(1.6);
+  else if (bored.kind === 'orbit') { bored.until = t + rand(2, 4); say('?', t, 1.4); }
+  else if (bored.kind === 'stretch') { bored.until = t + rand(1.2, 1.8); say('~', t, 1.2); }
+  else { // tap: one front leg drums impatiently
+    bored.until = t + rand(1.0, 1.6);
+    bored.leg = legs[Math.floor(Math.random() * 2) * 4];
+    bored.nextTapAt = t;
+    say('…', t, 1.2);
+  }
+}
+
+function fabrik(leg, base, target) {
+  if (!leg.joints) {
+    leg.joints = Array.from({ length: N_SEG + 1 }, (_, k) =>
+      [base[0] + (target[0] - base[0]) * k / N_SEG, base[1] + (target[1] - base[1]) * k / N_SEG]);
+  }
+  const j = leg.joints, L = leg.segLen;
+  for (let iter = 0; iter < 3; iter++) {
+    // backward: pin foot, pull toward base
+    j[N_SEG] = [target[0], target[1]];
+    for (let k = N_SEG - 1; k >= 0; k--) {
+      const d = Math.hypot(j[k][0] - j[k + 1][0], j[k][1] - j[k + 1][1]) || 1e-6;
+      j[k] = [j[k + 1][0] + (j[k][0] - j[k + 1][0]) / d * L, j[k + 1][1] + (j[k][1] - j[k + 1][1]) / d * L];
+    }
+    // forward: pin shoulder, push toward foot
+    j[0] = [base[0], base[1]];
+    for (let k = 1; k <= N_SEG; k++) {
+      const d = Math.hypot(j[k][0] - j[k - 1][0], j[k][1] - j[k - 1][1]) || 1e-6;
+      j[k] = [j[k - 1][0] + (j[k][0] - j[k - 1][0]) / d * L, j[k - 1][1] + (j[k][1] - j[k - 1][1]) / d * L];
+    }
+  }
+  // bias middle joints outward so the legs arch away from the body
+  for (let k = 1; k < N_SEG; k++) {
+    const dx = j[k][0] - spider.x, dy = j[k][1] - spider.y;
+    const d = Math.hypot(dx, dy) || 1e-6;
+    const push = 0.06 * S * Math.sin(Math.PI * k / N_SEG);
+    j[k][0] += dx / d * push; j[k][1] += dy / d * push;
+  }
+}
+
+const easeInOut = u => u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+
+function startStep(leg, t, vx, vy, fidget) {
+  const homeW = homeWorld(leg);
+  const lead = fidget ? 0 : 0.14;
+  leg.stepFrom = leg.foot.slice();
+  leg.stepTo = [homeW[0] + vx * lead + gauss() * 0.16 * S,
+                homeW[1] + vy * lead + gauss() * 0.16 * S];
+  leg.stepT0 = t;
+  leg.stepDur = rand(0.10, 0.20) * (spider.state === 'dart' ? 0.7 : 1);
+  leg.stepping = true;
+  leg.stepThresh = rand(0.38, 0.6) * S; // re-roll so no two steps trigger alike
+}
+
+// ---------- simulation ----------
+let last = 0;
+function update(t, dt) {
+  const m = 1.6 * S;
+  const idleFor = t - mouse.t;
+  let behavior; // 'chase' | 'bored' | 'wander'
+  if (mode === 'follow') behavior = 'chase';
+  else if (mode === 'live') behavior = 'wander';
+  else behavior = idleFor < 2.5 ? 'chase' : idleFor < 14 ? 'bored' : 'wander';
+
+  // "stretch" expression splays the leg homes outward, forcing outward steps
+  const scaleTarget = behavior === 'bored' && bored.kind === 'stretch' ? 1.4 : 1;
+  homeScale += (scaleTarget - homeScale) * Math.min(1, 6 * dt);
+
+  if (behavior === 'chase') {
+    // pursue the pointer; park and fidget once close
+    bored.kind = null;
+    const dx = mouse.x - spider.x, dy = mouse.y - spider.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > 0.7 * S) {
+      spider.targetHeading = Math.atan2(dy, dx) + headingNoise(t * 0.9) * 0.25;
+      spider.targetSpeed = Math.min(4.5 * S, 0.4 * S + dist * 2.2);
+      spider.state = 'dart';   // fast turn rate + quick steps while chasing
+    } else {
+      spider.targetSpeed = 0;
+      spider.state = 'pause';  // enables idle fidgets while parked at the cursor
+    }
+    spider.stateUntil = t;     // wander brain re-rolls when chase ends
+  } else if (behavior === 'bored') {
+    // pointer stuck: cycle Poisson-timed expressions around the cursor
+    if (!bored.kind || t >= bored.until) pickExpression(t);
+    if (bored.kind === 'orbit') {
+      // walk a ring around the cursor: aim at a point slightly ahead on the circle
+      const ring = 1.3 * S;
+      const aNext = Math.atan2(spider.y - mouse.y, spider.x - mouse.x) + bored.dir * 0.6;
+      const px = mouse.x + Math.cos(aNext) * ring, py = mouse.y + Math.sin(aNext) * ring;
+      spider.targetHeading = Math.atan2(py - spider.y, px - spider.x);
+      spider.targetSpeed = 0.9 * S;
+      spider.state = 'creep';
+    } else {
+      spider.targetSpeed = 0;
+      spider.state = 'pause';
+      if (bored.kind === 'tap' && t >= bored.nextTapAt && !bored.leg.stepping) {
+        startStep(bored.leg, t, 0, 0, true);
+        bored.leg.stepDur = 0.08;
+        bored.nextTapAt = t + 0.14;
+      }
+    }
+    spider.stateUntil = t;
+  } else {
+    // Markov brain with Poisson-timed transitions
+    if (t >= spider.stateUntil) enterState(pickNext(spider.state), t);
+
+    // wander: coherent-noise drift on the target heading while moving
+    if (spider.state !== 'pause') spider.targetHeading += headingNoise(t * 0.7) * 1.8 * dt;
+
+    // boundary steering: near the edge, override target heading toward center
+    if (spider.x < m || spider.x > W - m || spider.y < m || spider.y > H - m) {
+      spider.targetHeading = Math.atan2(H / 2 - spider.y, W / 2 - spider.x);
+      if (spider.state === 'pause') enterState('creep', t);
+    }
+
+    // ignored so long it dozed off mid-wander
+    if (mode === 'mixed' && Math.random() < 0.4 * dt) say('z', t, 1.5);
+  }
+
+  // turn + accelerate toward targets
+  let da = spider.targetHeading - spider.heading;
+  da = Math.atan2(Math.sin(da), Math.cos(da));
+  const turnRate = spider.state === 'dart' ? 7 : 3;
+  spider.heading += Math.max(-turnRate * dt, Math.min(turnRate * dt, da));
+  spider.speed += (spider.targetSpeed - spider.speed) * Math.min(1, 8 * dt);
+
+  const vx = Math.cos(spider.heading) * spider.speed;
+  const vy = Math.sin(spider.heading) * spider.speed;
+  spider.x = Math.max(m * 0.5, Math.min(W - m * 0.5, spider.x + vx * dt));
+  spider.y = Math.max(m * 0.5, Math.min(H - m * 0.5, spider.y + vy * dt));
+
+  // gait: step a leg when its planted foot falls too far behind its home
+  const steppingPerGroup = [0, 0];
+  for (const leg of legs) if (leg.stepping) steppingPerGroup[leg.group]++;
+  for (const leg of legs) {
+    if (!leg.foot) leg.foot = toWorld(leg.home);
+    if (leg.stepping) {
+      const u = Math.min(1, (t - leg.stepT0) / leg.stepDur);
+      const e = easeInOut(u);
+      leg.foot = [leg.stepFrom[0] + (leg.stepTo[0] - leg.stepFrom[0]) * e,
+                  leg.stepFrom[1] + (leg.stepTo[1] - leg.stepFrom[1]) * e];
+      if (u >= 1) { leg.stepping = false; steppingPerGroup[leg.group]--; footstep(leg); }
+      continue;
+    }
+    const homeW = homeWorld(leg);
+    const d = Math.hypot(leg.foot[0] - homeW[0], leg.foot[1] - homeW[1]);
+    const overreached = d > leg.stepThresh * 1.7; // emergency step ignores the group limit
+    if (d > leg.stepThresh && (steppingPerGroup[leg.group] < 2 || overreached)) {
+      startStep(leg, t, vx, vy, false);
+      steppingPerGroup[leg.group]++;
+    }
+  }
+
+  // idle fidget: Poisson-timed single-leg shuffles while paused
+  if (spider.state === 'pause' && t >= spider.fidgetAt) {
+    const idle = legs.filter(l => !l.stepping);
+    if (idle.length) startStep(idle[Math.floor(Math.random() * idle.length)], t, 0, 0, true);
+    spider.fidgetAt = t + expo(0.9);
+  }
+
+  for (const leg of legs) fabrik(leg, toWorld(leg.shoulder), leg.foot);
+}
+
+// ---------- render (rybinfx-style debug rig) ----------
+function draw(t) {
+  const dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+  ctx.strokeStyle = 'rgba(232,232,240,0.18)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(6, 6, W - 12, H - 12);
+
+  // blue circles: current foot targets
+  for (const leg of legs) {
+    const p = leg.stepping ? leg.stepTo : leg.foot;
+    ctx.beginPath();
+    ctx.arc(p[0], p[1], 5, 0, Math.PI * 2);
+    ctx.strokeStyle = '#2f4bd8'; ctx.lineWidth = 2.5;
+    ctx.stroke();
+  }
+
+  // red segments + yellow joints
+  for (const leg of legs) {
+    const j = leg.joints;
+    ctx.beginPath();
+    ctx.moveTo(j[0][0], j[0][1]);
+    for (let k = 1; k <= N_SEG; k++) ctx.lineTo(j[k][0], j[k][1]);
+    ctx.strokeStyle = '#d92b1f'; ctx.lineWidth = 3;
+    ctx.stroke();
+    for (let k = 0; k <= N_SEG; k++) {
+      ctx.beginPath();
+      ctx.arc(j[k][0], j[k][1], 2.6, 0, Math.PI * 2);
+      ctx.fillStyle = '#e4ee7a'; ctx.fill();
+    }
+  }
+
+  // green rectangle body, oriented to heading, with a subtle speed bob
+  const bob = Math.sin(t * 9) * 0.03 * S * Math.min(1, spider.speed / S);
+  ctx.save();
+  ctx.translate(spider.x, spider.y);
+  ctx.rotate(spider.heading + Math.PI / 2); // rect long side reads vertical when heading up
+  ctx.strokeStyle = '#cbe36b'; ctx.lineWidth = 2;
+  ctx.strokeRect(-0.21 * S, -0.5 * S + bob, 0.42 * S, S);
+  ctx.restore();
+
+  // emote glyph during expressions (? ~ … z)
+  if (emote.char && t < emote.until) {
+    ctx.font = `${Math.round(0.32 * S)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = `rgba(228,238,122,${Math.min(1, emote.until - t).toFixed(2)})`;
+    ctx.fillText(emote.char, spider.x + 0.5 * S, spider.y - 0.8 * S);
+  }
+}
+
+function frame(now) {
+  const t = now / 1000;
+  const dt = Math.min(0.05, t - last || 0.016);
+  last = t;
+  update(t, dt);
+  draw(t);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
