@@ -348,7 +348,7 @@ function los(x0,y0,x1,y1){
 const G={
   state:'menu',level:1,
   px:0,py:0,yaw:0,lookOff:0,lookBack:false,prevLook:false,
-  stamina:100,bobPh:0,bob:0,stepAcc:0,idleT:0,timeInLvl:0,lookbacks:0,deaths:0,
+  stamina:100,stamOut:false,bobPh:0,bob:0,stepAcc:0,idleT:0,timeInLvl:0,lookbacks:0,deaths:0,
   exitX:0,exitY:0,exitFX:0,exitFY:0,
   tension:0,light:1,flickT:3,flickOn:0,
   catchT:0,shake:0,
@@ -379,16 +379,21 @@ function newLevel(sameLevel){
   const cand=[];
   for(let i=0;i<d.length;i++)if(d[i]>=best*0.72)cand.push(i);
   cand.sort(()=>rnd()-0.5);
+  let placed=false;
   for(const c of cand){
     const x=c%MS,y=(c/MS)|0;
     const nb=[[x-1,y],[x+1,y],[x,y-1],[x,y+1]];
     const w=nb.find(n=>tileAt(n[0],n[1])===1);
-    if(w){map[w[1]*MS+w[0]]=2;G.exitX=w[0]+0.5;G.exitY=w[1]+0.5;G.exitFX=x+0.5;G.exitFY=y+0.5;break}
+    if(w){map[w[1]*MS+w[0]]=2;G.exitX=w[0]+0.5;G.exitY=w[1]+0.5;G.exitFX=x+0.5;G.exitFY=y+0.5;placed=true;break}
+  }
+  if(!placed){                                              // fallback: force a door beside the farthest cell
+    const c=cand[0],x=c%MS,y=(c/MS)|0;
+    map[y*MS+x-1]=2;G.exitX=x-0.5;G.exitY=y+0.5;G.exitFX=x+0.5;G.exitFY=y+0.5;
   }
   pdist=bfsDist(sx,sy);
   const s=stalkSpot();
   G.e.x=s[0];G.e.y=s[1];G.e.state='stalk';G.e.cool=6;G.e.watchT=0;G.e.relocT=0;
-  G.tension=0;G.timeInLvl=0;G.lookbacks=0;G.stamina=100;G.lookOff=0;G.lookBack=false;
+  G.tension=0;G.timeInLvl=0;G.lookbacks=0;G.stamina=100;G.stamOut=false;G.lookOff=0;G.lookBack=false;
   G.thumpT=5+rnd()*4;G.growlT=14+rnd()*10;G.idleT=0;G.exitHintT=20;G.exitGlow=0;
   $('lvl').textContent='LEVEL '+G.level;
   if(!sameLevel)showHint('find the exit. don’t stop moving.',6);
@@ -445,6 +450,7 @@ addEventListener('keydown',e=>{
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
 });
 addEventListener('keyup',e=>keys[e.code]=false);
+addEventListener('blur',()=>{for(const k in keys)keys[k]=false;btnLookOn=false;btnRunOn=false;});
 cv.addEventListener('mousedown',e=>{if(e.button===2)btnLookOn=true});
 addEventListener('mouseup',e=>{if(e.button===2)btnLookOn=false});
 addEventListener('contextmenu',e=>e.preventDefault());
@@ -644,6 +650,7 @@ function updateEntity(dt){
 // ---------------------------------------------------------------- game states
 function startCaught(){
   G.state='caught';G.catchT=0;
+  if(beaconGain)beaconGain.gain.value=0;
   sfxScream();
   if(document.pointerLockElement)document.exitPointerLock();
 }
@@ -657,6 +664,7 @@ function die(){
 function win(){
   if(G.state!=='play')return;
   G.state='won';sfxWin();
+  if(beaconGain)beaconGain.gain.value=0;
   if(document.pointerLockElement)document.exitPointerLock();
   const t=G.timeInLvl|0;
   $('wonStats').textContent='LEVEL '+G.level+' · '+((t/60)|0)+'m '+(t%60)+'s · '
@@ -711,7 +719,7 @@ function update(dt){
   if(joyId>=0){f+=-joyY;s+=joyX;}
   const mag=Math.hypot(f,s);
   const wantRun=(keys.ShiftLeft||keys.ShiftRight||btnRunOn||(joyId>=0&&mag>0.92));
-  const sprint=wantRun&&mag>0.05&&G.stamina>1;
+  const sprint=wantRun&&mag>0.05&&!G.stamOut&&G.stamina>1;
   const spd=(sprint?3.6:2.1)*Math.min(1,mag);
   if(mag>0.05){
     const inv=1/mag,c=Math.cos(G.yaw),sn=Math.sin(G.yaw);
@@ -726,6 +734,7 @@ function update(dt){
     G.bobPh+=spd*dt*2.6;G.bob=Math.sin(G.bobPh)*3;
   }else{G.idleT+=dt;G.bob*=Math.max(0,1-dt*6);}
   G.stamina=clamp(G.stamina+(sprint?-20:14)*dt,0,100);
+  if(G.stamina<=1)G.stamOut=true;else if(G.stamina>15)G.stamOut=false; // hysteresis: no re-sprint until recovered
   $('stam').style.width=G.stamina+'%';
 
   G.timeInLvl+=dt;
