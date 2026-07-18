@@ -20,6 +20,9 @@
   .overlay button{margin-top:22px;padding:14px 34px;font-family:inherit;font-size:16px;letter-spacing:.25em;
     background:#141203;color:#e8dc9a;border:1px solid #7a6f3a;cursor:pointer}
   .overlay button:hover{background:#241f06}
+  #end{background:rgba(4,6,3,.45)}
+  #end p{color:#cfd8b8;text-shadow:0 1px 3px #000}
+  #end .stats{color:#e8e2b0}
   .hidden{display:none!important}
   #hud{position:fixed;left:14px;bottom:14px;z-index:5;pointer-events:none}
   #stamwrap{width:130px;height:6px;background:rgba(0,0,0,.5);border:1px solid rgba(200,190,120,.35)}
@@ -60,6 +63,7 @@
   <h1>DON'T LOOK BACK</h1>
   <p>You are somewhere you shouldn't be. Find the exit.</p>
   <p>Something walks these halls behind you. Looking back only helps it find you.<br>Keep moving. It hates when you stop.</p>
+  <p>They say the hum stops five doors down.</p>
   <p id="ctlsPc">WASD / arrows &mdash; move &nbsp;&middot;&nbsp; mouse &mdash; look &nbsp;&middot;&nbsp; SHIFT &mdash; run<br>hold Q or right mouse &mdash; glance behind you</p>
   <p id="ctlsMob" class="hidden">left thumb &mdash; move (push far to run) &nbsp;&middot;&nbsp; drag right side &mdash; look<br>&#128064; button &mdash; glance behind you &nbsp;&middot;&nbsp; landscape recommended</p>
   <button id="btnStart">ENTER</button>
@@ -74,8 +78,15 @@
 <div class="overlay hidden" id="won">
   <h1>YOU ESCAPED</h1>
   <p class="stats" id="wonStats"></p>
-  <p>The door closes behind you. Another hallway. Of course.</p>
+  <p id="wonP">The door closes behind you. Another hallway. Of course.</p>
   <button id="btnNext">GO DEEPER</button>
+</div>
+
+<div class="overlay hidden" id="end">
+  <h1>YOU GOT OUT</h1>
+  <p class="stats" id="endStats"></p>
+  <p>Grass. Wind. A sun coming up like nothing happened.<br>Behind you the door is just a door, standing in a field, and it isn't humming anymore.</p>
+  <button id="btnAgain">BEGIN AGAIN</button>
 </div>
 
 <script>
@@ -157,6 +168,68 @@ const ceilTex=makeTex(256,(g,s)=>{
 });
 const isPanel=(u,v)=>u>=96&&u<160&&v>=96&&v<160;
 
+// graffiti stamps — left by whoever was here before you
+const BLOOD='rgba(88,16,12,0.85)',CHAR='rgba(30,27,22,0.9)',INK='rgba(52,28,16,0.9)';
+function makeGraf(draw){
+  const c=document.createElement('canvas');c.width=c.height=64;
+  const g=c.getContext('2d');
+  g.translate(32,32);g.rotate((rnd()*2-1)*0.1);g.translate(-32,-32);
+  draw(g);
+  return new Uint32Array(g.getImageData(0,0,64,64).data.buffer);
+}
+function scrawl(g,lines,col,size){
+  g.fillStyle=col;g.font='bold '+size+'px Courier New';g.textAlign='center';
+  lines.forEach((L,i)=>{
+    for(let j=0;j<2;j++)g.fillText(L,32+(rnd()*2-1)*1.5,22+i*(size+1)+(rnd()*2-1)*1.5);
+  });
+}
+function drips(g,col,n){
+  g.strokeStyle=col;g.lineWidth=1.5;
+  for(let i=0;i<n;i++){
+    const x=10+rnd()*44,y=16+rnd()*20;
+    g.beginPath();g.moveTo(x,y);g.lineTo(x+(rnd()*2-1)*2,y+6+rnd()*14);g.stroke();
+  }
+}
+function grafArrow(g,col,dir){
+  g.strokeStyle=col;g.lineWidth=5;g.lineCap='round';
+  const a=dir>0?14:50,b=dir>0?50:14;
+  g.beginPath();g.moveTo(a,30);g.lineTo(b,28);g.stroke();
+  g.beginPath();g.moveTo(b,28);g.lineTo(b-dir*12,17);g.stroke();
+  g.beginPath();g.moveTo(b,28);g.lineTo(b-dir*12,40);g.stroke();
+}
+const GRAFS=[
+  makeGraf(g=>{scrawl(g,['DONT','STOP'],BLOOD,15);drips(g,BLOOD,3);}),
+  makeGraf(g=>{scrawl(g,['IT SEES','YOU'],CHAR,13);}),
+  makeGraf(g=>{scrawl(g,['5 DOORS','DOWN'],INK,12);}),
+  makeGraf(g=>{scrawl(g,['DONT','LOOK','BACK'],CHAR,12);}),
+  makeGraf(g=>{scrawl(g,['SHHH'],BLOOD,18);drips(g,BLOOD,2);}),
+  makeGraf(g=>{grafArrow(g,INK,1);scrawl(g,['','OUT'],INK,13);}),
+  makeGraf(g=>{                                             // "OUT" arrow, crossed out
+    grafArrow(g,INK,-1);scrawl(g,['','OUT'],INK,13);
+    g.strokeStyle=BLOOD;g.lineWidth=4;g.lineCap='round';
+    g.beginPath();g.moveTo(10,14);g.lineTo(54,52);g.stroke();
+    scrawl(g,['','','LIAR'],BLOOD,11);
+  }),
+  makeGraf(g=>{                                             // tally marks
+    g.strokeStyle=INK;g.lineWidth=2.5;g.lineCap='round';
+    for(let grp=0;grp<3;grp++)for(let i=0;i<4;i++){
+      const x=11+grp*16+i*3.5,y=22+grp;
+      g.beginPath();g.moveTo(x,y);g.lineTo(x+1,y+15);g.stroke();
+    }
+    g.beginPath();g.moveTo(9,26);g.lineTo(26,34);g.stroke();
+  }),
+  makeGraf(g=>{                                             // bloody handprint
+    const c='rgba(84,20,14,0.6)';
+    g.fillStyle=c;
+    g.beginPath();g.ellipse(32,40,9,11,0,0,7);g.fill();
+    for(let i=0;i<5;i++){
+      const a=-1.57+(i-2)*0.38;
+      g.beginPath();g.ellipse(32+Math.cos(a)*15,40+Math.sin(a)*15,3.2,7,a+1.57,0,7);g.fill();
+    }
+    drips(g,c,4);
+  }),
+];
+
 // the figure — 4 animation frames, spindly black thing with pale eyes
 function makeFigure(sw){
   const c=document.createElement('canvas');c.width=160;c.height=320;
@@ -185,7 +258,7 @@ const figFrames=[makeFigure(0),makeFigure(1),makeFigure(0),makeFigure(-1)];
 const FIGW=160,FIGH=320;
 
 // ---------------------------------------------------------------- audio (all synthesized)
-let AC=null,master=null,nbuf=null,beaconGain=null,panOK=false;
+let AC=null,master=null,nbuf=null,beaconGain=null,panOK=false,ambients=[];
 function audioInit(){
   if(AC||TEST)return;
   try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){return}
@@ -203,6 +276,7 @@ function audioInit(){
   const alp=AC.createBiquadFilter();alp.type='lowpass';alp.frequency.value=240;
   const ag=AC.createGain();ag.gain.value=0.05;
   air.connect(alp);alp.connect(ag);ag.connect(master);air.start();
+  ambients=[[hg,0.022],[ag,0.05]];
   // exit beacon — faint beating tone, louder as you near the door
   const b1=AC.createOscillator();b1.frequency.value=392;
   const b2=AC.createOscillator();b2.frequency.value=394.5;
@@ -280,13 +354,42 @@ function sfxWin(){
     o.connect(g);g.connect(master);o.start(t+i*0.12);o.stop(t+1.9);
   });
 }
+function restoreAmbient(){
+  if(!AC)return;
+  ambients.forEach(a=>a[0].gain.setTargetAtTime(a[1],AC.currentTime,0.5));
+}
+// outside: hum dies away, wind rises, a warm chord, morning birds
+function sfxEnding(){
+  if(!AC)return;const t=AC.currentTime;
+  ambients.forEach(a=>a[0].gain.setTargetAtTime(0.0001,t,1.2));
+  const s=AC.createBufferSource();s.buffer=nbuf;s.loop=true;
+  const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.value=420;
+  const g=AC.createGain();g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(0.06,t+4);
+  s.connect(f);f.connect(g);g.connect(master);s.start(t);s.stop(t+30);
+  [262,330,392,523].forEach((fr,i)=>{
+    const o=AC.createOscillator();o.type='sine';o.frequency.value=fr;
+    const og=AC.createGain();
+    og.gain.setValueAtTime(0.0001,t+1+i*0.4);og.gain.linearRampToValueAtTime(0.05,t+3+i*0.4);
+    og.gain.setTargetAtTime(0.0001,t+9,2);
+    o.connect(og);og.connect(master);o.start(t+1+i*0.4);o.stop(t+16);
+  });
+}
+function sfxBird(){
+  if(!AC)return;const t=AC.currentTime;
+  const o=AC.createOscillator();o.type='sine';
+  o.frequency.setValueAtTime(2200,t);o.frequency.exponentialRampToValueAtTime(3100,t+0.08);
+  o.frequency.exponentialRampToValueAtTime(2500,t+0.16);
+  const g=AC.createGain();g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.05,t+0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.2);
+  o.connect(g);g.connect(outNode(rnd()*1.6-0.8));o.start(t);o.stop(t+0.25);
+}
 document.addEventListener('visibilitychange',()=>{
   if(!AC)return;
   if(document.hidden)AC.suspend();else AC.resume();
 });
 
 // ---------------------------------------------------------------- map
-let MS=0,map=null,pdist=null;
+let MS=0,map=null,pdist=null,deco=null;
 function genMap(size){
   const m=new Uint8Array(size*size).fill(1);
   const st=[[1,1]];m[size+1]=0;
@@ -345,8 +448,10 @@ function los(x0,y0,x1,y1){
 }
 
 // ---------------------------------------------------------------- state
+const FINAL=5;
 const G={
   state:'menu',level:1,
+  totTime:0,totLooks:0,totDeaths:0,endT:0,endShown:false,
   px:0,py:0,yaw:0,lookOff:0,lookBack:false,prevLook:false,
   stamina:100,stamOut:false,bobPh:0,bob:0,stepAcc:0,idleT:0,timeInLvl:0,lookbacks:0,deaths:0,
   exitX:0,exitY:0,exitFX:0,exitFY:0,
@@ -391,6 +496,16 @@ function newLevel(sameLevel){
     map[y*MS+x-1]=2;G.exitX=x-0.5;G.exitY=y+0.5;G.exitFX=x+0.5;G.exitFY=y+0.5;
   }
   pdist=bfsDist(sx,sy);
+  // graffiti from the ones before — more of it the deeper you go
+  deco=new Uint8Array(MS*MS);
+  const nGraf=8+Math.min(12,G.level*3);
+  let gGot=0,gTry=0;
+  while(gGot<nGraf&&gTry++<600){
+    const x=1+(rnd()*(MS-2)|0),y=1+(rnd()*(MS-2)|0),i=y*MS+x;
+    if(map[i]!==1||deco[i])continue;
+    if(tileAt(x-1,y)&&tileAt(x+1,y)&&tileAt(x,y-1)&&tileAt(x,y+1))continue;
+    deco[i]=1+(rnd()*GRAFS.length|0);gGot++;
+  }
   const s=stalkSpot();
   G.e.x=s[0];G.e.y=s[1];G.e.state='stalk';G.e.cool=6;G.e.watchT=0;G.e.relocT=0;
   G.tension=0;G.timeInLvl=0;G.lookbacks=0;G.stamina=100;G.stamOut=false;G.lookOff=0;G.lookBack=false;
@@ -412,6 +527,13 @@ function newLevel(sameLevel){
       G.e.state='peek';G.e.t=999;G.e.peekBase=[G.e.x,G.e.y];
     }
     if(/walk/.test(location.search))keys.KeyW=true;
+    if(/graf/.test(location.search)){                        // graffiti on every visible wall
+      for(let y=1;y<MS-1;y++)for(let x=1;x<MS-1;x++){
+        const i=y*MS+x;
+        if(map[i]===1&&!(tileAt(x-1,y)&&tileAt(x+1,y)&&tileAt(x,y-1)&&tileAt(x,y+1)))
+          deco[i]=1+(rnd()*GRAFS.length|0);
+      }
+    }
     if(/hint/.test(location.search)){G.exitGlow=1;fireExitHint();}
   }
 }
@@ -655,7 +777,8 @@ function startCaught(){
   if(document.pointerLockElement)document.exitPointerLock();
 }
 function die(){
-  G.state='dead';G.deaths++;
+  G.state='dead';G.deaths++;G.totDeaths++;
+  G.totTime+=G.timeInLvl;G.totLooks+=G.lookbacks;
   const msgs=['IT FOUND YOU','YOU LOOKED TOO LONG','YOU STOPPED RUNNING','IT WAS ALWAYS BEHIND YOU'];
   $('deadMsg').textContent=msgs[(rnd()*msgs.length)|0];
   $('redflash').style.opacity=0;
@@ -663,13 +786,40 @@ function die(){
 }
 function win(){
   if(G.state!=='play')return;
-  G.state='won';sfxWin();
   if(beaconGain)beaconGain.gain.value=0;
   if(document.pointerLockElement)document.exitPointerLock();
+  G.totTime+=G.timeInLvl;G.totLooks+=G.lookbacks;
+  if(G.level>=FINAL)return startEnding();
+  G.state='won';sfxWin();
   const t=G.timeInLvl|0;
-  $('wonStats').textContent='LEVEL '+G.level+' · '+((t/60)|0)+'m '+(t%60)+'s · '
+  $('wonStats').textContent='LEVEL '+G.level+' OF '+FINAL+' · '+((t/60)|0)+'m '+(t%60)+'s · '
     +G.lookbacks+' glances back · '+G.deaths+' deaths';
+  $('wonP').textContent=G.level===FINAL-1
+    ?'The hum is thinner here. One more door.'
+    :'The door closes behind you. Another hallway. Of course.';
   $('won').classList.remove('hidden');
+}
+
+// ------------------------------------------------ the ending — dawn outside
+let endStars=null,endBirds=null,endTufts=null;
+function startEnding(){
+  G.state='ending';G.endT=0;G.endShown=false;
+  endStars=[];for(let i=0;i<70;i++)endStars.push([rnd(),rnd()*0.6,rnd()*6.28,0.5+rnd()]);
+  endBirds=[];for(let i=0;i<3;i++)endBirds.push({x:rnd(),y:0.15+rnd()*0.2,sp:0.015+rnd()*0.02,ph:rnd()*6.28});
+  endTufts=[];for(let i=0;i<140;i++)endTufts.push([rnd(),rnd(),1+rnd()*3]);
+  $('lvl').textContent='';$('hint').textContent='';$('hint').style.opacity=0;
+  sfxEnding();
+}
+function updateEnding(dt){
+  G.endT+=dt;
+  if(G.endT>4&&rnd()<dt*0.3)sfxBird();
+  if(G.endT>10&&!G.endShown){
+    G.endShown=true;
+    const t=G.totTime|0;
+    $('endStats').textContent=FINAL+' LEVELS · '+((t/60)|0)+'m '+(t%60)+'s DOWN THERE · '
+      +G.totLooks+' glances back · '+G.totDeaths+' deaths';
+    $('end').classList.remove('hidden');
+  }
 }
 function toPlay(){
   ['menu','dead','won'].forEach(i=>$(i).classList.add('hidden'));
@@ -678,15 +828,22 @@ function toPlay(){
 }
 $('btnStart').onclick=()=>{
   audioInit();if(AC&&AC.state==='suspended')AC.resume();
+  restoreAmbient();
   if(TOUCH&&document.documentElement.requestFullscreen)
     document.documentElement.requestFullscreen().catch(()=>{});
   newLevel(false);toPlay();
 };
 $('btnRespawn').onclick=()=>{newLevel(true);toPlay();};
 $('btnNext').onclick=()=>{G.level++;G.deaths=0;newLevel(false);toPlay();};
+$('btnAgain').onclick=()=>{
+  $('end').classList.add('hidden');
+  G.level=1;G.deaths=0;G.totTime=0;G.totLooks=0;G.totDeaths=0;
+  G.state='menu';$('menu').classList.remove('hidden');
+};
 
 // ---------------------------------------------------------------- update
 function update(dt){
+  if(G.state==='ending')return updateEnding(dt);
   if(G.state==='caught'){
     G.catchT+=dt;
     // it closes the last step and fills your vision
@@ -838,11 +995,23 @@ function render(){
     if(side===1)sh*=0.72;
     let shi=(sh*256)|0;
     if(tile===2)shi=Math.max(shi,215);        // the exit door glows
+    const gi=tile===1&&deco?deco[my*MS+mx]:0;
+    const gpx=gi?GRAFS[gi-1]:null;
     const tcol=texX;
+    const goff=63-2*tcol;                     // wall flip mirrors text — unmirror for the viewer
     for(let y=dS;y<dE;y++){
-      const c=tex.px[((tp|0)&tex.mask)*ts+tcol];
+      const ti=((tp|0)&tex.mask)*ts+tcol;
+      const c=tex.px[ti];
       tp+=step;
-      const r=((c&255)*shi)>>8,g=(((c>>8)&255)*shi)>>8,b=(((c>>16)&255)*shi)>>8;
+      let r=((c&255)*shi)>>8,g=(((c>>8)&255)*shi)>>8,b=(((c>>16)&255)*shi)>>8;
+      if(gpx){                                // paint over the wallpaper
+        const gc=gpx[ti+goff];
+        if((gc>>>24)>80){
+          r=(r+3*(((gc&255)*shi)>>8))>>2;
+          g=(g+3*((((gc>>8)&255)*shi)>>8))>>2;
+          b=(b+3*((((gc>>16)&255)*shi)>>8))>>2;
+        }
+      }
       buf[y*RW+x]=0xff000000|(b<<16)|(g<<8)|r;
     }
   }
@@ -864,6 +1033,77 @@ function render(){
     else if(bear>0){g=ctx.createLinearGradient(RW,0,0,0);g.addColorStop(0,'rgba(120,255,170,'+a+')');g.addColorStop(0.5,'rgba(120,255,170,0)');}
     else{g=ctx.createLinearGradient(0,0,RW,0);g.addColorStop(0,'rgba(120,255,170,'+a+')');g.addColorStop(0.5,'rgba(120,255,170,0)');}
     ctx.fillStyle=g;ctx.fillRect(0,0,RW,RH);
+  }
+}
+// --- ending: white of the doorway fades into a field at dawn
+const mix=(a,b,k)=>[(a[0]+(b[0]-a[0])*k)|0,(a[1]+(b[1]-a[1])*k)|0,(a[2]+(b[2]-a[2])*k)|0];
+const css=c=>'rgb('+c[0]+','+c[1]+','+c[2]+')';
+function renderEnding(){
+  const t=G.endT;
+  if(t<1){                                     // door light floods the hallway
+    render();
+    ctx.fillStyle='rgba(255,255,240,'+t+')';ctx.fillRect(0,0,RW,RH);
+    return;
+  }
+  drawOutside(t);
+  const u=(t-1)/1.5;                           // fade from white into the scene
+  if(u<1){ctx.fillStyle='rgba(255,255,240,'+(1-u)+')';ctx.fillRect(0,0,RW,RH);}
+}
+function drawOutside(t){
+  const p=clamp((t-1)/8,0,1);                  // dawn progress
+  const horY=(RH*0.68)|0;
+  // sky
+  let g=ctx.createLinearGradient(0,0,0,horY);
+  g.addColorStop(0,css(mix([8,12,34],[110,160,205],p)));
+  g.addColorStop(1,css(mix([26,28,56],[255,170,92],p)));
+  ctx.fillStyle=g;ctx.fillRect(0,0,RW,horY);
+  // stars, fading as the sun comes up
+  ctx.fillStyle='#fff';
+  for(const s of endStars){
+    const a=(1-p)*(0.3+0.7*Math.abs(Math.sin(t*s[3]+s[2])));
+    if(a<0.03)continue;
+    ctx.globalAlpha=a;ctx.fillRect((s[0]*RW)|0,(s[1]*horY)|0,1,1);
+  }
+  ctx.globalAlpha=1;
+  // sun
+  const sunX=RW*0.55,sunY=horY+8-p*RH*0.22;
+  const glow=ctx.createRadialGradient(sunX,sunY,2,sunX,sunY,RH*0.55);
+  glow.addColorStop(0,'rgba(255,214,140,'+(0.35+0.45*p)+')');
+  glow.addColorStop(1,'rgba(255,150,60,0)');
+  ctx.fillStyle=glow;ctx.fillRect(0,0,RW,horY);
+  ctx.fillStyle='#ffe9b0';
+  ctx.beginPath();ctx.arc(sunX,sunY,RH*0.028,0,7);ctx.fill();
+  // ground
+  g=ctx.createLinearGradient(0,horY,0,RH);
+  g.addColorStop(0,css(mix([13,16,9],[62,88,40],p)));
+  g.addColorStop(1,css(mix([7,9,5],[36,56,24],p)));
+  ctx.fillStyle=g;ctx.fillRect(0,horY,RW,RH-horY);
+  // grass tufts
+  ctx.strokeStyle=css(mix([5,7,4],[30,48,20],p));ctx.lineWidth=1;
+  ctx.beginPath();
+  for(const tf of endTufts){
+    const x=(tf[0]*RW)|0,y=horY+2+tf[1]*(RH-horY-3);
+    ctx.moveTo(x,y);ctx.lineTo(x,y-tf[2]);
+  }
+  ctx.stroke();
+  // the door, alone in the field — its yellow light dying as day comes
+  const dh=(RH*0.17)|0,dw=(dh*0.45)|0,dx=(RW*0.2)|0,db=horY+6;
+  const la=0.3*(1-p*0.8);
+  const lg=ctx.createRadialGradient(dx,db,1,dx,db,dw*2.2);
+  lg.addColorStop(0,'rgba(255,230,140,'+la+')');lg.addColorStop(1,'rgba(255,230,140,0)');
+  ctx.fillStyle=lg;
+  ctx.beginPath();ctx.ellipse(dx,db,dw*2.2,dw*0.8,0,0,7);ctx.fill();
+  ctx.fillStyle='#101208';ctx.fillRect(dx-(dw>>1)-2,db-dh-2,dw+4,dh+2);
+  ctx.fillStyle='rgba(255,222,120,'+(0.2+0.6*(1-p*0.75))+')';
+  ctx.fillRect(dx-(dw>>1),db-dh,dw,dh);
+  // birds
+  if(p>0.35){
+    ctx.strokeStyle='rgba(20,24,30,'+(0.4+0.6*p)+')';ctx.lineWidth=1;
+    for(const b of endBirds){
+      const bx=((b.x+t*b.sp)%1.15)*RW,by=(b.y+Math.sin(t*0.7+b.ph)*0.02)*horY;
+      const w=Math.abs(Math.sin(t*6+b.ph))*2+0.5;
+      ctx.beginPath();ctx.moveTo(bx-3,by);ctx.lineTo(bx,by-w);ctx.lineTo(bx+3,by);ctx.stroke();
+    }
   }
 }
 function drawEntity(dirX,dirY,plX,plY,horizon,light){
@@ -905,11 +1145,16 @@ function loop(t){
   const dt=Math.min(0.05,(t-last)/1000||0.016);last=t;
   update(dt);
   if(G.state==='play'||G.state==='caught')render();
+  else if(G.state==='ending')renderEnding();
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
 
-if(TEST){newLevel(false);toPlay();}
+if(TEST){
+  newLevel(false);toPlay();
+  const em=location.search.match(/[?&]end(?:=([\d.]+))?/);
+  if(em){startEnding();G.endT=em[1]?+em[1]:2;}
+}
 </script>
 </body>
 </html>
