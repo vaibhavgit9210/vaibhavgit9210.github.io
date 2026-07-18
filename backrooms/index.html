@@ -1193,7 +1193,7 @@ if(TEST){
 /* anonymous visit beacon — counts loads + presence heartbeats, no cookies */
 (function(){
   if (location.protocol === "file:" || location.hostname === "localhost") return;
-  var EP = "https://site-analytics.vaibhav-webhook.workers.dev/ping";
+  var EP = "https://site-analytics.vaibhavpro9210.workers.dev/ping";
   var sid = sessionStorage.getItem("va_sid");
   if (!sid) { sid = Math.random().toString(36).slice(2) + Date.now().toString(36); sessionStorage.setItem("va_sid", sid); }
   function send(kind){
