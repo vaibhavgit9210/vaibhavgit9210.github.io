@@ -571,7 +571,7 @@ function fireExitHint(){
 
 // ---------------------------------------------------------------- input
 const keys={};
-let joyId=-1,joyBX=0,joyBY=0,joyX=0,joyY=0,lookId=-1,lookLX=0;
+let joyId=null,joyBX=0,joyBY=0,joyX=0,joyY=0,lookId=null,lookLX=0; // null sentinels: iOS touch identifiers can be negative
 let btnRunOn=false,btnLookOn=false;
 addEventListener('keydown',e=>{
   keys[e.code]=true;
@@ -602,13 +602,13 @@ if(TOUCH){
   cv.addEventListener('touchstart',e=>{
     e.preventDefault();
     for(const t of e.changedTouches){
-      if(t.clientX<innerWidth*0.45&&joyId<0){
+      if(t.clientX<innerWidth*0.45&&joyId===null){
         joyId=t.identifier;joyBX=t.clientX;joyBY=t.clientY;joyX=joyY=0;
         const b=$('joyBase'),k=$('joyKnob');
         b.style.display=k.style.display='block';
         b.style.left=(joyBX-55)+'px';b.style.top=(joyBY-55)+'px';
         k.style.left=(joyBX-23)+'px';k.style.top=(joyBY-23)+'px';
-      }else if(lookId<0){lookId=t.identifier;lookLX=t.clientX;}
+      }else if(lookId===null){lookId=t.identifier;lookLX=t.clientX;}
     }
   },{passive:false});
   cv.addEventListener('touchmove',e=>{
@@ -628,9 +628,9 @@ if(TOUCH){
   },{passive:false});
   const tend=e=>{
     for(const t of e.changedTouches){
-      if(t.identifier===joyId){joyId=-1;joyX=joyY=0;
+      if(t.identifier===joyId){joyId=null;joyX=joyY=0;
         $('joyBase').style.display=$('joyKnob').style.display='none';}
-      if(t.identifier===lookId)lookId=-1;
+      if(t.identifier===lookId)lookId=null;
     }
   };
   cv.addEventListener('touchend',tend);cv.addEventListener('touchcancel',tend);
@@ -884,9 +884,9 @@ function update(dt){
   if(keys.KeyA)s-=1;if(keys.KeyD)s+=1;
   if(keys.ArrowLeft)G.yaw-=dt*2.4;
   if(keys.ArrowRight)G.yaw+=dt*2.4;
-  if(joyId>=0){f+=-joyY;s+=joyX;}
+  if(joyId!==null){f+=-joyY;s+=joyX;}
   const mag=Math.hypot(f,s);
-  const wantRun=(keys.ShiftLeft||keys.ShiftRight||btnRunOn||(joyId>=0&&mag>0.92));
+  const wantRun=(keys.ShiftLeft||keys.ShiftRight||btnRunOn||(joyId!==null&&mag>0.92));
   const sprint=wantRun&&mag>0.05&&!G.stamOut&&G.stamina>1;
   const spd=(sprint?3.6:2.1)*Math.min(1,mag);
   if(mag>0.05){
@@ -1188,6 +1188,20 @@ if(TEST){
   const em=location.search.match(/[?&]end(?:=([\d.]+))?/);
   if(em){startEnding();G.endT=em[1]?+em[1]:2;}
 }
+</script>
+<script>
+/* anonymous visit beacon — counts loads + presence heartbeats, no cookies */
+(function(){
+  if (location.protocol === "file:" || location.hostname === "localhost") return;
+  var EP = "https://site-analytics.vaibhav-webhook.workers.dev/ping";
+  var sid = sessionStorage.getItem("va_sid");
+  if (!sid) { sid = Math.random().toString(36).slice(2) + Date.now().toString(36); sessionStorage.setItem("va_sid", sid); }
+  function send(kind){
+    try { navigator.sendBeacon(EP, new Blob([JSON.stringify({sid:sid, page:location.pathname, kind:kind})], {type:"text/plain"})); } catch(e){}
+  }
+  send("load");
+  setInterval(function(){ if (document.visibilityState === "visible") send("beat"); }, 60000);
+})();
 </script>
 </body>
 </html>
