@@ -230,31 +230,37 @@ const GRAFS=[
   }),
 ];
 
-// the figure — 4 animation frames, spindly black thing with pale eyes
-function makeFigure(sw){
+// the figure — spindly black thing with pale eyes; joints driven by
+// out-of-phase sines so every frame of the cycle hangs together wrong
+function makeFigure(p){
   const c=document.createElement('canvas');c.width=160;c.height=320;
   const g=c.getContext('2d');
   g.lineCap='round';g.strokeStyle='#0b0b0e';g.fillStyle='#0b0b0e';
-  g.lineWidth=9;                                             // legs
-  g.beginPath();g.moveTo(72,182);g.lineTo(66+sw*9,250);g.lineTo(60+sw*15,316);g.stroke();
-  g.beginPath();g.moveTo(88,182);g.lineTo(94-sw*9,250);g.lineTo(100-sw*15,316);g.stroke();
-  g.beginPath();                                             // hunched torso
-  g.moveTo(54,82);g.quadraticCurveTo(80,66,106,82);
+  const s1=Math.sin(p),s2=Math.sin(p+2.1),s3=Math.sin(p*1.7+0.7),s4=Math.sin(p+4.2);
+  const sway=s3*3;
+  g.lineWidth=9;                                             // legs, knees off-beat
+  g.beginPath();g.moveTo(72,182);g.lineTo(66+s1*11,250+s2*4);g.lineTo(60+s1*17+s3*4,316);g.stroke();
+  g.beginPath();g.moveTo(88,182);g.lineTo(94-s1*11,250-s2*4);g.lineTo(100-s1*17+s4*4,316);g.stroke();
+  g.beginPath();                                             // hunched torso, swaying
+  g.moveTo(54+sway,82);g.quadraticCurveTo(80+sway,66,106+sway,82);
   g.lineTo(93,188);g.lineTo(67,188);g.closePath();g.fill();
-  g.lineWidth=7;                                             // long arms
-  g.beginPath();g.moveTo(57,88);g.lineTo(46-sw*7,170);g.lineTo(41-sw*11,252);g.stroke();
-  g.beginPath();g.moveTo(103,88);g.lineTo(114+sw*7,170);g.lineTo(119+sw*11,252);g.stroke();
+  g.lineWidth=7;                                             // long arms, wrists flailing
+  const lw=41-s1*13+s4*8,rw=119+s1*13+s3*8;
+  g.beginPath();g.moveTo(57+sway,88);g.lineTo(46-s1*9+s3*5,170);g.lineTo(lw,252);g.stroke();
+  g.beginPath();g.moveTo(103+sway,88);g.lineTo(114+s1*9+s4*5,170);g.lineTo(rw,252);g.stroke();
   g.lineWidth=3;                                             // finger hints
-  g.beginPath();g.moveTo(41-sw*11,252);g.lineTo(36-sw*11,266);g.stroke();
-  g.beginPath();g.moveTo(119+sw*11,252);g.lineTo(124+sw*11,266);g.stroke();
-  g.beginPath();g.ellipse(80,52,15,20,0,0,7);g.fill();       // head
+  g.beginPath();g.moveTo(lw,252);g.lineTo(lw-5+s4*2,266);g.stroke();
+  g.beginPath();g.moveTo(rw,252);g.lineTo(rw+5+s3*2,266);g.stroke();
+  const tilt=s2*2.5;
+  g.beginPath();g.ellipse(80+sway+tilt,52,15,20,s3*0.12,0,7);g.fill(); // head, tilting
   g.fillStyle='#dfe6df';                                     // eyes
-  g.beginPath();g.ellipse(73,49,2.6,3.6,0,0,7);g.fill();
-  g.beginPath();g.ellipse(87,49,2.6,3.6,0,0,7);g.fill();
+  g.beginPath();g.ellipse(73+sway+tilt,49,2.6,3.6,0,0,7);g.fill();
+  g.beginPath();g.ellipse(87+sway+tilt,49,2.6,3.6,0,0,7);g.fill();
   const d=g.getImageData(0,0,160,320);
   return new Uint32Array(d.data.buffer);
 }
-const figFrames=[makeFigure(0),makeFigure(1),makeFigure(0),makeFigure(-1)];
+const NFR=8;
+const figFrames=[];for(let i=0;i<NFR;i++)figFrames.push(makeFigure(i/NFR*6.283));
 const FIGW=160,FIGH=320;
 
 // ---------------------------------------------------------------- audio (all synthesized)
@@ -700,7 +706,12 @@ function updateEntity(dt){
 
   if(e.state==='stalk'){
     if(los(G.px,G.py,e.x,e.y)&&watched()){
-      e.watchT+=dt;                       // it freezes when seen… then reacts
+      e.watchT+=dt;                       // seen: it lurches toward you while you look
+      const lu=Math.max(0,Math.sin(tNow*6.5));
+      const sp=(0.3+Math.min(1.2,e.watchT*0.6))*lu*lu;
+      const a=Math.atan2(G.py-e.y,G.px-e.x);
+      moveBody(e,Math.cos(a)*sp*dt,Math.sin(a)*sp*dt,0.28);
+      e.anim+=sp*dt*2.2;
       if(e.watchT>1.3){if(rnd()<0.4)startHunt();else hideEntity();}
     }else{
       e.watchT=0;e.relocT+=dt;
@@ -1106,6 +1117,7 @@ function drawOutside(t){
     }
   }
 }
+const wobT=new Float32Array(FIGH);
 function drawEntity(dirX,dirY,plX,plY,horizon,light){
   const relX=G.e.x-G.px,relY=G.e.y-G.py;
   const invDet=1/(plX*dirY-dirX*plY);
@@ -1117,10 +1129,29 @@ function drawEntity(dirX,dirY,plX,plY,horizon,light){
   if(sH<2)return;
   const sW=(sH*(FIGW/FIGH))|0;
   const floorY=horizon+((RH*0.5)/tY)|0;
+  const fr=figFrames[((G.e.anim*2+tNow*7)|0)%NFR];   // never stops moving, even standing still
+  for(let v=0;v<FIGH;v++)                            // limbs wave more the further from the head
+    wobT[v]=Math.sin(tNow*9+v*0.05)*(1.5+v*0.035);
+  // dark bleed — it doesn't quite fit inside its own outline
+  const as=1.2+0.06*Math.sin(tNow*2.6);
+  const aW=(sW*as*1.25)|0,aH=(sH*as)|0;
+  const ax0=scrX-(aW>>1),aTop=floorY-aH;
+  const axs=Math.max(0,ax0),axe=Math.min(RW,ax0+aW);
+  const ays=Math.max(0,aTop);
+  for(let x=axs;x<axe;x++){
+    if(tY>=zbuf[x])continue;
+    const u=((x-ax0)*FIGW/aW)|0;
+    for(let y=ays,ye=Math.min(RH,floorY);y<ye;y++){
+      const v=((y-aTop)*FIGH/aH)|0;
+      if((fr[v*FIGW+u]>>>24)<60)continue;
+      const i=y*RW+x,c0=buf[i];
+      const r=((c0&255)*160)>>8,g=(((c0>>8)&255)*160)>>8,b=(((c0>>16)&255)*160)>>8;
+      buf[i]=0xff000000|(b<<16)|(g<<8)|r;
+    }
+  }
   const top=floorY-sH;
   let x0=scrX-(sW>>1),x1=x0+sW;
-  const fr=figFrames[(G.e.anim|0)%4];
-  let sh=clamp((3.0/tY)*light,0,1);
+  let sh=clamp((3.0/tY)*light,0.16,1);               // never fades all the way into the dark
   if(G.state==='caught')sh=Math.max(sh,0.55);
   const shi=(sh*256)|0;
   const xs=Math.max(0,x0),xe=Math.min(RW,x1);
@@ -1130,7 +1161,9 @@ function drawEntity(dirX,dirY,plX,plY,horizon,light){
     const ys=Math.max(0,top),ye=Math.min(RH,floorY);
     for(let y=ys;y<ye;y++){
       const v=(((y-top)*FIGH/sH)|0);
-      const c=fr[v*FIGW+u];
+      const u2=(u+wobT[v])|0;
+      if(u2<0||u2>=FIGW)continue;
+      const c=fr[v*FIGW+u2];
       if((c>>>24)<110)continue;
       let r=((c&255)*shi)>>8,g=(((c>>8)&255)*shi)>>8,b=(((c>>16)&255)*shi)>>8;
       if((c&255)>180){r=Math.min(255,(c&255));g=Math.min(255,(c>>8)&255);b=Math.min(255,(c>>16)&255);} // eyes stay pale
@@ -1140,9 +1173,9 @@ function drawEntity(dirX,dirY,plX,plY,horizon,light){
 }
 
 // ---------------------------------------------------------------- main loop
-let last=0;
+let last=0,tNow=0;
 function loop(t){
-  const dt=Math.min(0.05,(t-last)/1000||0.016);last=t;
+  const dt=Math.min(0.05,(t-last)/1000||0.016);last=t;tNow=t/1000||0;
   update(dt);
   if(G.state==='play'||G.state==='caught')render();
   else if(G.state==='ending')renderEnding();
