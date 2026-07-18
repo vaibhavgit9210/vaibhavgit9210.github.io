@@ -197,6 +197,23 @@ a.spot .go{color:var(--accent);font-size:.85rem;font-weight:600;margin-top:6px}
 a.spot .go::after{content:" →";transition:margin .2s}
 a.spot:hover .go::after{margin-left:5px}
 
+/* mini live cards */
+h3.minis-title{font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:6px}
+p.minis-sub{color:var(--muted);font-size:.88rem;margin-bottom:22px}
+.minis{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-bottom:56px}
+.mini{
+  display:flex;flex-direction:column;gap:6px;padding:18px 20px;border-radius:14px;
+  background:var(--card);border:1px solid var(--card-border);
+  transition:border-color .3s,transform .3s;
+}
+.mini:hover{border-color:var(--accent);transform:translateY(-3px)}
+.mini h4{font-size:1rem;font-weight:700}
+.mini p{color:var(--muted);font-size:.84rem;flex:1}
+.mini .links{display:flex;gap:16px;font-size:.82rem;font-weight:600}
+.mini .links a{color:var(--accent);text-decoration:none}
+.mini .links a.gh{color:var(--muted)}
+.mini .links a:hover{text-decoration:underline}
+
 /* glow-up timeline */
 .glowup h3.gu-title{font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:6px}
 .glowup p.gu-sub{color:var(--muted);font-size:.88rem;margin-bottom:28px}
@@ -339,6 +356,41 @@ footer a{color:var(--accent);text-decoration:none}
       no build step, runs entirely offline. Built purely for the joy of it.</p>
       <span class="go">Watch the heist</span>
     </a>
+  </div>
+
+  <h3 class="minis-title reveal">…and a workshop of smaller things, all running</h3>
+  <p class="minis-sub reveal">Each one lives in its own repo and deploys itself — click through.</p>
+  <div class="minis">
+    <div class="mini reveal">
+      <h4>knowitall</h4>
+      <p>Self-updating news brief that makes me read every headline before it lets me browse. GitHub Actions is the whole backend.</p>
+      <div class="links"><a href="https://vaibhavgit9210.github.io/knowitall/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/knowitall" target="_blank" rel="noopener">code</a></div>
+    </div>
+    <div class="mini reveal">
+      <h4>hireme</h4>
+      <p>Job + competition dashboard: scores openings against my profile daily from 40+ sources — aggregators, ATS boards, HN. Free and keyless.</p>
+      <div class="links"><a href="https://vaibhavgit9210.github.io/hireme/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/hireme" target="_blank" rel="noopener">code</a></div>
+    </div>
+    <div class="mini reveal">
+      <h4>CodeTools</h4>
+      <p>In-browser code formatter + diff checker — JS, JSON, SQL (7 dialects), HTML. CodeMirror 6, GitHub-style diffs, no backend.</p>
+      <div class="links"><a href="https://vaibhavgit9210.github.io/jsondiff/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/jsondiff" target="_blank" rel="noopener">code</a></div>
+    </div>
+    <div class="mini reveal">
+      <h4>Board</h4>
+      <p>A splittable whiteboard — panes divide like tmux and each toggles between rich text and freehand drawing. One HTML file.</p>
+      <div class="links"><a href="https://vaibhavgit9210.github.io/mypager/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/mypager" target="_blank" rel="noopener">code</a></div>
+    </div>
+    <div class="mini reveal">
+      <h4>BlogVlog</h4>
+      <p>8-bit blog platform where GitHub Pages is the host and the GitHub API is the CMS — posts and media are commits.</p>
+      <div class="links"><a href="https://vaibhavgit9210.github.io/blogvlog/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/blogvlog" target="_blank" rel="noopener">code</a></div>
+    </div>
+    <div class="mini reveal">
+      <h4>Webhook Receiver</h4>
+      <p>webhook.site, the minimal cut: a Cloudflare Worker + Durable Object streams incoming hooks to the page live over WebSocket.</p>
+      <div class="links"><a href="https://vaibhavgit9210.github.io/webhook/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/webhook" target="_blank" rel="noopener">code</a></div>
+    </div>
   </div>
 
   <div class="glowup reveal">
