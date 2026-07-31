@@ -76,6 +76,23 @@ nav ul a.bored:hover{
   animation:wiggle .4s ease-in-out;
 }
 @keyframes wiggle{25%{transform:rotate(-3deg)}75%{transform:rotate(3deg)}}
+
+/* hiring-team banner */
+#hirebar{
+  position:fixed;top:0;left:0;right:0;z-index:60;
+  display:flex;justify-content:center;align-items:center;
+  padding:9px 44px 9px 16px;text-align:center;
+  font-size:.85rem;font-weight:600;color:#0b0f1a;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+}
+#hirebar a{color:#0b0f1a;font-weight:800;text-decoration:underline;text-underline-offset:2px;white-space:nowrap}
+#hirebar button{
+  position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  background:none;border:none;font-size:.95rem;color:#0b0f1a;cursor:pointer;opacity:.65;padding:4px 8px;
+}
+#hirebar button:hover{opacity:1}
+body.hasbar nav{top:var(--barh,37px)}
+body.hasbar .hero{padding-top:calc(80px + var(--barh,37px))}
 @media(max-width:640px){
   nav ul{gap:14px}nav ul a{font-size:.8rem}
   nav ul li:nth-child(-n+4){display:none}
@@ -245,6 +262,58 @@ p.minis-sub{color:var(--muted);font-size:.88rem;margin-bottom:22px}
 .sg .chips span:hover{color:var(--text);border-color:var(--accent2);transform:translateY(-2px)}
 .sg .chips span:hover::after{content:" ?";color:var(--accent2);font-weight:700}
 
+/* preview shots on cards */
+img.shot{
+  width:100%;aspect-ratio:8/5;object-fit:cover;object-position:top;display:block;
+  border-radius:10px;border:1px solid rgba(255,255,255,.08);
+  transition:border-color .3s;
+}
+.mini img.shot{margin-bottom:6px}
+a.spot img.shot{margin-bottom:8px}
+.mini:hover img.shot,a.spot:hover img.shot{border-color:rgba(110,231,255,.4)}
+
+/* hero extras: pulse chip, talk line, what's-new */
+.chiprow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+#pulse .dot{background:var(--accent)}
+#pulse[hidden]{display:none}
+p.talk{margin-top:18px;color:var(--muted);font-size:.9rem}
+p.talk a{color:var(--accent);text-decoration:none;border-bottom:1px dashed rgba(110,231,255,.5)}
+#whatsnew{
+  margin-top:26px;padding:16px 20px;border-radius:12px;max-width:600px;
+  background:var(--card);border:1px solid var(--card-border);
+}
+#whatsnew .wn-title{
+  font-family:ui-monospace,Menlo,monospace;font-size:.72rem;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--accent);margin-bottom:8px;
+}
+#whatsnew ul{list-style:none;display:flex;flex-direction:column;gap:6px}
+#whatsnew li{font-size:.86rem;color:var(--muted)}
+#whatsnew .d{font-family:ui-monospace,Menlo,monospace;font-size:.72rem;color:var(--accent2);margin-right:9px}
+#whatsnew a{color:var(--text);text-decoration:none}
+#whatsnew a:hover{color:var(--accent)}
+
+/* the wall */
+#wallform{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+#wallform input{
+  flex:1;min-width:150px;padding:12px 14px;border-radius:10px;font-size:.9rem;
+  background:var(--card);border:1px solid var(--card-border);color:var(--text);outline:none;
+}
+#wallform input:focus{border-color:var(--accent)}
+#wmsg{flex:3}
+#wallform button{border:none;cursor:pointer;font-family:inherit}
+#wallstatus{color:var(--accent2);font-size:.84rem;min-height:1.5em;margin-bottom:20px}
+#wallgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.mark{
+  padding:14px 16px;border-radius:12px;background:var(--card);
+  border:1px solid var(--card-border);transform:rotate(var(--rot,0deg));
+}
+.mark .who{
+  display:flex;justify-content:space-between;gap:8px;margin-bottom:5px;
+  font-family:ui-monospace,Menlo,monospace;font-size:.76rem;color:var(--accent);
+}
+.mark .who span{color:var(--muted);font-size:.7rem;white-space:nowrap}
+.mark p{color:var(--text);font-size:.88rem;overflow-wrap:break-word}
+
 /* contact */
 .contact{text-align:center;padding-bottom:40px}
 .contact .big{font-size:clamp(1.8rem,5vw,2.8rem);font-weight:800;letter-spacing:-1px;
@@ -266,7 +335,24 @@ footer a{color:var(--accent);text-decoration:none}
 }
 </style>
 </head>
-<body>
+<body class="hasbar">
+
+<div id="hirebar" role="note">
+  <span>This page is crafted for the hiring team — everyone else, <a href="arcade/">the arcade is this way →</a></span>
+  <button id="hirebar-x" aria-label="Dismiss">✕</button>
+</div>
+<script>
+(function(){ // before first paint: honor a previous dismissal, else size the offset
+  var bar = document.getElementById("hirebar");
+  if (localStorage.getItem("vk_hidebar")) { bar.remove(); document.body.classList.remove("hasbar"); return; }
+  function fit(){ document.body.style.setProperty("--barh", bar.offsetHeight + "px"); }
+  addEventListener("resize", fit); fit();
+  document.getElementById("hirebar-x").addEventListener("click", function(){
+    localStorage.setItem("vk_hidebar", "1");
+    bar.remove(); document.body.classList.remove("hasbar");
+  });
+})();
+</script>
 
 <canvas id="space"></canvas>
 <div id="glow"></div>
@@ -279,6 +365,7 @@ footer a{color:var(--accent);text-decoration:none}
     <li><a href="#live">Live</a></li>
     <li><a href="#projects">Projects</a></li>
     <li><a href="#skills">Skills</a></li>
+    <li><a href="#wall">Wall</a></li>
     <li><a href="#contact">Contact</a></li>
     <li><a class="bored" href="arcade/">bored?</a></li>
   </ul>
@@ -287,7 +374,10 @@ footer a{color:var(--accent);text-decoration:none}
 <main id="top">
 
 <section class="hero">
-  <div class="chip"><span class="dot"></span> Bangalore, India · Building AI systems in production</div>
+  <div class="chiprow">
+    <div class="chip"><span class="dot"></span> Bangalore, India · Building AI systems in production</div>
+    <div class="chip" id="pulse" hidden><span class="dot"></span> <span id="pulse-txt"></span></div>
+  </div>
   <div class="hello">hi, my name is</div>
   <h1>Vaibhav <span>Kumar</span>.</h1>
   <div class="type-line"><span id="typed"></span><span class="caret"></span></div>
@@ -302,6 +392,12 @@ footer a{color:var(--accent);text-decoration:none}
     <a class="btn ghost" href="https://github.com/vaibhavgit9210" target="_blank" rel="noopener">GitHub</a>
     <a class="btn ghost" href="https://linkedin.com/in/vaibhav-k-b35389130" target="_blank" rel="noopener">LinkedIn</a>
     <a class="btn ghost" href="Vaibhav_Kumar_Resume.pdf" download="Vaibhav_Kumar_Resume.pdf">Resume ↓</a>
+  </div>
+  <p class="talk">The best version of this page is a conversation — <a href="mailto:vaibhavpro9210@gmail.com">email me</a>, I actually reply.</p>
+
+  <div id="whatsnew" hidden>
+    <div class="wn-title"></div>
+    <ul></ul>
   </div>
 
   <div class="stats">
@@ -347,6 +443,7 @@ footer a{color:var(--accent);text-decoration:none}
   <p class="sub reveal">Not slides, not repos — things you can click and try right now.</p>
   <div class="spotlights">
     <a class="spot reveal" href="https://fcstudio.co.in" target="_blank" rel="noopener">
+      <img class="shot" loading="lazy" src="previews/fcstudio.jpg" alt="">
       <span class="live-tag"><span class="dot"></span>LIVE</span>
       <h3>fcstudio.co.in <small>e-commerce, in production</small></h3>
       <p>A real store with real customers — storefront, payments, and shipping integrations
@@ -354,6 +451,7 @@ footer a{color:var(--accent);text-decoration:none}
       <span class="go">Visit the store</span>
     </a>
     <a class="spot reveal" href="https://vaibhavgit9210.github.io/train-robbery/" target="_blank" rel="noopener">
+      <img class="shot" loading="lazy" src="arcade/previews/train-robbery.jpg" alt="">
       <span class="live-tag"><span class="dot"></span>LIVE</span>
       <h3>The Great Train Robbery <small>WebGL, zero libraries</small></h3>
       <p>A single-file wild-west heist animation written in raw WebGL — no frameworks,
@@ -361,6 +459,7 @@ footer a{color:var(--accent);text-decoration:none}
       <span class="go">Watch the heist</span>
     </a>
     <a class="spot reveal" href="https://vaibhavkumar.is-a.dev/lemon-experiment/" target="_blank" rel="noopener">
+      <img class="shot" loading="lazy" src="arcade/previews/lemon.jpg" alt="">
       <span class="live-tag"><span class="dot"></span>LIVE</span>
       <h3>lemon <small>an LLM plays the other side</small></h3>
       <p>A pixel-art game about gently talking someone back into the world. A language model
@@ -374,81 +473,97 @@ footer a{color:var(--accent);text-decoration:none}
   <p class="minis-sub reveal">Each one lives in its own repo and deploys itself — click through.</p>
   <div class="minis">
     <div class="mini reveal">
+      <img class="shot" loading="lazy" src="previews/knowitall.jpg" alt="knowitall preview">
       <h4>knowitall</h4>
       <p>Self-updating news brief that makes me read every headline before it lets me browse. GitHub Actions is the whole backend.</p>
       <div class="links"><a href="https://vaibhavgit9210.github.io/knowitall/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/knowitall" target="_blank" rel="noopener">code</a></div>
     </div>
     <div class="mini reveal">
+      <img class="shot" loading="lazy" src="previews/hireme.jpg" alt="hireme preview">
       <h4>hireme</h4>
       <p>Job + competition dashboard: scores openings against my profile daily from 40+ sources — aggregators, ATS boards, HN. Free and keyless.</p>
       <div class="links"><a href="https://vaibhavgit9210.github.io/hireme/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/hireme" target="_blank" rel="noopener">code</a></div>
     </div>
     <div class="mini reveal">
+      <img class="shot" loading="lazy" src="previews/codetools.jpg" alt="CodeTools preview">
       <h4>CodeTools</h4>
       <p>In-browser code formatter + diff checker — JS, JSON, SQL (7 dialects), HTML. CodeMirror 6, GitHub-style diffs, no backend.</p>
       <div class="links"><a href="https://vaibhavgit9210.github.io/jsondiff/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/jsondiff" target="_blank" rel="noopener">code</a></div>
     </div>
     <div class="mini reveal">
+      <img class="shot" loading="lazy" src="previews/board.jpg" alt="Board preview">
       <h4>Board</h4>
       <p>A splittable whiteboard — panes divide like tmux and each toggles between rich text and freehand drawing. One HTML file.</p>
       <div class="links"><a href="https://vaibhavgit9210.github.io/mypager/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/mypager" target="_blank" rel="noopener">code</a></div>
     </div>
     <div class="mini reveal">
+      <img class="shot" loading="lazy" src="previews/blogvlog.jpg" alt="BlogVlog preview">
       <h4>BlogVlog</h4>
       <p>8-bit blog platform where GitHub Pages is the host and the GitHub API is the CMS — posts and media are commits.</p>
       <div class="links"><a href="https://vaibhavgit9210.github.io/blogvlog/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/blogvlog" target="_blank" rel="noopener">code</a></div>
     </div>
     <div class="mini reveal">
+      <img class="shot" loading="lazy" src="previews/webhook.jpg" alt="Webhook Receiver preview">
       <h4>Webhook Receiver</h4>
       <p>webhook.site, the minimal cut: a Cloudflare Worker + Durable Object streams incoming hooks to the page live over WebSocket.</p>
       <div class="links"><a href="https://vaibhavgit9210.github.io/webhook/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/webhook" target="_blank" rel="noopener">code</a></div>
     </div>
     <div class="mini reveal">
+      <img class="shot" loading="lazy" src="previews/ideas.jpg" alt="Ideas Notebook, 2018 preview">
       <h4>Ideas Notebook, 2018</h4>
       <p>My college notepad of project ideas, finally being built — one folder per idea: disaster analytics, an Enigma machine, a password generator, more coming.</p>
       <div class="links"><a href="https://vaibhavgit9210.github.io/notepad-ideas-since-2018/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/notepad-ideas-since-2018" target="_blank" rel="noopener">code</a></div>
     </div>
     <div class="mini reveal">
+      <img class="shot" loading="lazy" src="arcade/previews/countdown.jpg" alt="2027 Sprint Board preview">
       <h4>2027 Sprint Board</h4>
       <p>A countdown to 2027 wrapped around a 30-day, 30-build sprint tracker — checkboxes, streaks, and no place to hide.</p>
       <div class="links"><a href="https://vaibhavgit9210.github.io/countdown-timer/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/countdown-timer" target="_blank" rel="noopener">code</a></div>
     </div>
     <div class="mini reveal">
+      <img class="shot" loading="lazy" src="arcade/previews/tracka-packet.jpg" alt="tracka·packet preview">
       <h4>tracka·packet</h4>
       <p>Real traceroutes from my machine riding real submarine-cable geometry — with a physics layer that catches geolocation lies at the speed of light.</p>
       <div class="links"><a href="https://vaibhavgit9210.github.io/tracka-packet/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/tracka-packet" target="_blank" rel="noopener">code</a></div>
     </div>
     <div class="mini reveal">
+      <img class="shot" loading="lazy" src="arcade/previews/doobki-hub.jpg" alt="doobki preview">
       <h4>doobki</h4>
       <p>Render tests for a game I haven't built yet — the same man falling into the sea in pixel art and in smooth vector, plus a low-poly WebGL2 art-style study.</p>
       <div class="links"><a href="https://vaibhavkumar.is-a.dev/doobki/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/doobki" target="_blank" rel="noopener">code</a></div>
     </div>
     <div class="mini reveal">
+      <img class="shot" loading="lazy" src="arcade/previews/ananta.jpg" alt="Ananta preview">
       <h4>Ananta</h4>
       <p>A wisdom chatbot — the Gita, Homer, Plato, Aristotle, the Stoics. A Cloudflare Worker cascades three free-tier LLMs, so the whole service runs on ₹0 with no keys required.</p>
       <div class="links"><a href="https://vaibhavkumar.is-a.dev/Ananta/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/Ananta" target="_blank" rel="noopener">code</a></div>
     </div>
     <div class="mini reveal">
+      <img class="shot" loading="lazy" src="arcade/previews/anubhav.jpg" alt="anubhav preview">
       <h4>anubhav</h4>
       <p>A realtime music visualizer — mic or tab audio through one AnalyserNode, eight styles from Chladni sand plates to a low-poly shoal that swims to the spectrum. Nothing recorded, nothing uploaded.</p>
       <div class="links"><a href="https://vaibhavkumar.is-a.dev/anubhav/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/anubhav" target="_blank" rel="noopener">code</a></div>
     </div>
     <div class="mini reveal">
+      <img class="shot" loading="lazy" src="arcade/previews/chidiya-udd.jpg" alt="Chidiya Udd preview">
       <h4>Chidiya Udd</h4>
       <p>The playground classic, digitized — solo against a computer caller, 2–4 players around one phone with multi-touch zones, or online rooms on a Cloudflare Durable Object.</p>
       <div class="links"><a href="https://vaibhavkumar.is-a.dev/chidiya-udd/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/chidiya-udd" target="_blank" rel="noopener">code</a></div>
     </div>
     <div class="mini reveal">
+      <img class="shot" loading="lazy" src="arcade/previews/decay-democracy.jpg" alt="decay-democracy preview">
       <h4>decay-democracy</h4>
       <p>A data story: calibrate a democratic-erosion detector on three documented backsliders, check it stays quiet on a healthy control — then point it at India.</p>
       <div class="links"><a href="https://vaibhavkumar.is-a.dev/decay-democracy/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/decay-democracy" target="_blank" rel="noopener">code</a></div>
     </div>
     <div class="mini reveal">
+      <img class="shot" loading="lazy" src="previews/readings.jpg" alt="readings preview">
       <h4>readings</h4>
       <p>Long-form thinking notes, published as a reading site — analyses I've stress-tested, built straight from markdown with reading progress kept in localStorage.</p>
       <div class="links"><a href="https://vaibhavkumar.is-a.dev/readme/" target="_blank" rel="noopener">live ↗</a><a class="gh" href="https://github.com/vaibhavgit9210/readme" target="_blank" rel="noopener">code</a></div>
     </div>
     <div class="mini reveal">
+      <img class="shot" loading="lazy" src="previews/arcade.jpg" alt="VK Arcade preview">
       <h4>VK Arcade</h4>
       <p>The toy cabinet: an LLM-driven pixel game, a music visualizer, backrooms horror, a WebGL train heist, an IK spider, asteroids, and a live night sky — all single HTML files, now with previews.</p>
       <div class="links"><a href="arcade/" target="_blank" rel="noopener">insert coin ↗</a></div>
@@ -536,6 +651,19 @@ footer a{color:var(--accent);text-decoration:none}
   </div>
 </section>
 
+<section id="wall">
+  <h2 class="title reveal">Leave a Mark</h2>
+  <p class="sub reveal">You made it this far — that deserves a trace. Sign the wall: 140 characters,
+  three marks a day, no account, no tracking. I read every one.</p>
+  <form id="wallform" class="reveal" autocomplete="off">
+    <input id="wname" maxlength="24" placeholder="name (optional)">
+    <input id="wmsg" maxlength="140" placeholder="your mark…" required>
+    <button class="btn primary" type="submit" id="wallbtn">Leave it</button>
+  </form>
+  <div id="wallstatus" aria-live="polite"></div>
+  <div id="wallgrid" class="reveal"></div>
+</section>
+
 <section id="contact" class="contact">
   <h2 class="title reveal" style="text-align:center">Get In Touch</h2>
   <p class="reveal">I'm interested in AI engineering roles and hard problems at the intersection of
@@ -559,48 +687,56 @@ footer a{color:var(--accent);text-decoration:none}
 "use strict";
 var reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/* ---------- particle background ---------- */
+/* ---------- aurora curtains over stars (the same sky anubhav idles under) ---------- */
 var cv = document.getElementById("space"), ctx = cv.getContext("2d");
-var W, H, pts = [], mouse = {x:-9999, y:-9999};
+var W, H, stars = [], mouse = {x:-9999, y:-9999};
+var LAYERS = [
+  {y:.16, amp:.05,  len:.30, sp:.8,  h1:160, h2:205, a:.085},
+  {y:.24, amp:.07,  len:.24, sp:1.35,h1:185, h2:265, a:.075},
+  {y:.10, amp:.045, len:.20, sp:1.0, h1:250, h2:300, a:.05}
+];
 function resize(){
   W = cv.width = innerWidth; H = cv.height = innerHeight;
-  var n = Math.min(110, Math.floor(W*H/16000));
-  pts = [];
-  for (var i=0;i<n;i++) pts.push({
-    x:Math.random()*W, y:Math.random()*H,
-    vx:(Math.random()-.5)*.35, vy:(Math.random()-.5)*.35,
-    r:Math.random()*1.6+.5
+  stars = [];
+  var n = Math.min(180, Math.floor(W*H/9000));
+  for (var i=0;i<n;i++) stars.push({
+    x:Math.random()*W, y:Math.random()*H*.85,
+    r:Math.random()*1.3+.4, p:Math.random()*6.28, s:.4+Math.random()*1.2
   });
+  if (reduced) draw(60000); // one static frame
 }
-addEventListener("resize", resize); resize();
-function tick(){
+function draw(t){
   ctx.clearRect(0,0,W,H);
-  for (var i=0;i<pts.length;i++){
-    var p = pts[i];
-    p.x += p.vx; p.y += p.vy;
-    if (p.x<0||p.x>W) p.vx*=-1;
-    if (p.y<0||p.y>H) p.vy*=-1;
-    var dx = p.x-mouse.x, dy = p.y-mouse.y, d = Math.hypot(dx,dy);
-    if (d<140 && d>0){ p.x += dx/d*1.2; p.y += dy/d*1.2; }
-    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7);
-    ctx.fillStyle = "rgba(140,190,255,.55)"; ctx.fill();
-    for (var j=i+1;j<pts.length;j++){
-      var q = pts[j], dd = Math.hypot(p.x-q.x, p.y-q.y);
-      if (dd<130){
-        ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y);
-        ctx.strokeStyle = "rgba(110,180,255,"+(0.12*(1-dd/130))+")";
-        ctx.lineWidth = 1; ctx.stroke();
-      }
+  for (var i=0;i<stars.length;i++){
+    var st = stars[i];
+    ctx.globalAlpha = (.35+.65*Math.abs(Math.sin(t*.0006*st.s+st.p)))*.8;
+    ctx.fillStyle = "#cfe4ff";
+    ctx.fillRect(st.x, st.y, st.r, st.r);
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "lighter";
+  var step = 8;
+  for (var L=0; L<LAYERS.length; L++){
+    var c = LAYERS[L], ph = t*.0004*c.sp + L*2.1;
+    for (var x=0; x<=W; x+=step){
+      var n1 = Math.sin(x*.0038+ph) + .55*Math.sin(x*.0102-ph*1.7) + .3*Math.sin(x*.021+ph*.6);
+      var m = Math.exp(-Math.pow(x-mouse.x,2)/64800); // the curtains lean toward your cursor
+      var yTop = (c.y + n1*c.amp)*H - m*26;
+      var len = H*c.len*(.75+.25*Math.sin(x*.008-ph*1.3));
+      var hue = c.h1 + (c.h2-c.h1)*(.5+.5*Math.sin(x*.0016+ph*.35));
+      var a = c.a*(1+.9*m);
+      var g = ctx.createLinearGradient(0, yTop, 0, yTop+len);
+      g.addColorStop(0, "hsla("+hue+",90%,66%,"+a+")");
+      g.addColorStop(.35, "hsla("+hue+",85%,60%,"+(a*.55)+")");
+      g.addColorStop(1, "hsla("+hue+",80%,55%,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(x, yTop, step, len);
     }
   }
-  requestAnimationFrame(tick);
+  ctx.globalCompositeOperation = "source-over";
 }
-if (!reduced) tick();
-else { // static dots
-  for (var i=0;i<pts.length;i++){ var p=pts[i];
-    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7);
-    ctx.fillStyle="rgba(140,190,255,.4)"; ctx.fill(); }
-}
+addEventListener("resize", resize); resize();
+if (!reduced) (function loop(t){ draw(t||0); requestAnimationFrame(loop); })(0);
 
 /* ---------- cursor glow ---------- */
 var glow = document.getElementById("glow");
@@ -677,6 +813,100 @@ if (!reduced && matchMedia("(hover:hover)").matches){
     card.addEventListener("mouseleave", function(){ card.style.transform = ""; });
   });
 }
+
+/* ---------- live pulse (aggregate numbers from site-analytics) ---------- */
+fetch("https://site-analytics.vaibhavpro9210.workers.dev/pulse")
+  .then(function(r){ return r.json(); })
+  .then(function(p){
+    var bits = [];
+    bits.push(p.here <= 1 ? "you're the only one here right now" : p.here + " people here right now");
+    if (p.week > 1) bits.push(p.week + " visitors this week");
+    if (p.top){
+      var name = decodeURIComponent(p.top).replace(/^\/+|\/+$/g,"").split("/")[0];
+      if (name === "readme") name = "readings";
+      if (name === "lemon-experiment") name = "lemon";
+      if (name) bits.push("busiest corner: " + name);
+    }
+    document.getElementById("pulse-txt").textContent = bits.join(" · ");
+    document.getElementById("pulse").hidden = false;
+  }).catch(function(){});
+
+/* ---------- returning visitors get greeted + shown what's new ---------- */
+var UPDATES = [
+  {d:"2026-07-31", t:"anubhav — a realtime music visualizer", h:"https://vaibhavkumar.is-a.dev/anubhav/"},
+  {d:"2026-07-30", t:"Ananta — wisdom chatbot, smarter model cascade", h:"https://vaibhavkumar.is-a.dev/Ananta/"},
+  {d:"2026-07-29", t:"chidiya udd — the childhood game, now online", h:"https://vaibhavkumar.is-a.dev/chidiya-udd/"},
+  {d:"2026-07-24", t:"lemon v3 — the neon-noir → dawn overhaul", h:"https://vaibhavkumar.is-a.dev/lemon-experiment/"},
+  {d:"2026-07-20", t:"decay-democracy — a data story about backsliding", h:"https://vaibhavkumar.is-a.dev/decay-democracy/"}
+];
+try {
+  var seen = +localStorage.getItem("vk_seen") || 0;
+  localStorage.setItem("vk_seen", Date.now());
+  if (seen) document.querySelector(".hello").textContent = "hi again — you already know my name is";
+  var fresh = seen ? UPDATES.filter(function(u){ return new Date(u.d+"T00:00:00").getTime() > seen; })
+                   : UPDATES.slice(0,3);
+  if (fresh.length){
+    var wn = document.getElementById("whatsnew");
+    wn.querySelector(".wn-title").textContent = seen ? "new since your last visit" : "recently shipped";
+    var ul = wn.querySelector("ul");
+    fresh.forEach(function(u){
+      var li = document.createElement("li");
+      var d = document.createElement("span"); d.className = "d"; d.textContent = u.d;
+      var a = document.createElement("a"); a.href = u.h; a.target = "_blank"; a.rel = "noopener";
+      a.textContent = u.t + " ↗";
+      li.appendChild(d); li.appendChild(a); ul.appendChild(li);
+    });
+    wn.hidden = false;
+  }
+} catch(e){}
+
+/* ---------- the wall ---------- */
+var GB = "https://guestbook.vaibhavpro9210.workers.dev";
+var wallGrid = document.getElementById("wallgrid");
+var wallStatus = document.getElementById("wallstatus");
+function ago(ts){
+  var s = (Date.now()-ts)/1000;
+  if (s < 90) return "just now";
+  if (s < 3600) return Math.round(s/60) + "m ago";
+  if (s < 86400) return Math.round(s/3600) + "h ago";
+  return Math.round(s/86400) + "d ago";
+}
+function renderMarks(list){
+  wallGrid.innerHTML = "";
+  list.forEach(function(e){
+    var d = document.createElement("div");
+    d.className = "mark";
+    d.style.setProperty("--rot", ((e.id*37)%5-2)*.5 + "deg");
+    var who = document.createElement("div"); who.className = "who";
+    who.textContent = e.name;
+    var when = document.createElement("span"); when.textContent = ago(e.ts);
+    who.appendChild(when);
+    var p = document.createElement("p"); p.textContent = e.msg;
+    d.appendChild(who); d.appendChild(p);
+    wallGrid.appendChild(d);
+  });
+}
+function loadWall(){
+  fetch(GB+"/entries").then(function(r){ return r.json(); }).then(renderMarks)
+    .catch(function(){ wallStatus.textContent = "the wall is unreachable right now — it'll be back"; });
+}
+loadWall();
+document.getElementById("wallform").addEventListener("submit", function(ev){
+  ev.preventDefault();
+  var msg = document.getElementById("wmsg").value.trim();
+  if (msg.length < 2) return;
+  var btn = document.getElementById("wallbtn");
+  btn.disabled = true; wallStatus.textContent = "…";
+  fetch(GB+"/entry", {method:"POST", body:JSON.stringify({
+    name: document.getElementById("wname").value, msg: msg
+  })}).then(function(r){
+    return r.text().then(function(t){
+      if (r.status === 201){ wallStatus.textContent = "it's on the wall — thank you."; document.getElementById("wmsg").value = ""; loadWall(); }
+      else wallStatus.textContent = t;
+    });
+  }).catch(function(){ wallStatus.textContent = "couldn't reach the wall — try again in a minute"; })
+    .finally(function(){ btn.disabled = false; });
+});
 })();
 </script>
 <script>
