@@ -2,7 +2,9 @@
 
 Git repo → `git@github-personal:vaibhavgit9210/vaibhavgit9210.github.io.git` (user site — GitHub Pages serves from `main`). Live at https://vaibhavkumar.is-a.dev/ — custom domain via `CNAME`; all vaibhavgit9210.github.io URLs 301 there, so **curl the is-a.dev URL when verifying deploys**.
 
-- Single-file portfolio (`index.html`).
-- The old weather app is preserved at `weather/` and linked from the site's "Glow-Up" timeline.
+- **Homepage (`index.html`) is words-free by design**: only the name, a ChatGPT-style ask box, the Leave a Mark wall, icon contact links, footer "designed by Vaibhav · built by AI". Don't add prose back; career/project knowledge lives in the chatbot. Hook `#shot=chat` shows a canned answer offline.
+- **Ask box backend = `worker/` → `vk-brain` Cloudflare Worker** (vaibhavpro9210 account) at `https://vk-brain.vaibhavpro9210.workers.dev/ask`, POST `{"q"}` → `{"a"}`, stateless, one paragraph. Cascade Groq → Gemini (only if those optional secrets are set) → Workers AI (no key). KV `VK_LIMITS` 30/IP/day, 200 global/day. `IP_SALT` secret set. Its system prompt holds the resume + **every project link: when you ship a new public project, add it to the knowledge in `worker/worker.js` and the answer-URL allowlist, then `npx wrangler deploy` from `worker/`.**
+- **Three rooms, every live item in exactly one**: `arcade/` (games only), `toolbox/` (tools, dashboards, sites you use), `moving-illustrations/` (visual experiences: animations, visualizers, render tests, data stories). Card = preview + name + 2-4 word tag, no blurbs. The `.roomnav` block (CSS + markup) is identical in all three, accent from `--room`; change it in all three.
+- The old weather app is preserved at `weather/` (in Toolbox). `weather/keys.js` exposes an OpenWeather key publicly (pre-existing).
 - `backrooms/` and `simulation-cam/` in here are deployed **copies** — their sources of truth live at the workspace root (`../backrooms/`, `../simulation-cam/`); re-copy after editing the originals, don't edit the copies.
 - Every page carries the site-analytics beacon (see `../site-analytics/README.md`) — paste the same beacon block into any new page before deploying.

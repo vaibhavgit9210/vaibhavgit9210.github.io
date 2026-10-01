@@ -1,0 +1,21 @@
+# vk-brain: LLM backend for the ask box on https://vaibhavkumar.is-a.dev/
+# Deploy (Cloudflare account vaibhavpro9210@gmail.com): npx wrangler deploy
+#
+# Secrets (npx wrangler secret put NAME):
+#   IP_SALT       required. Random string; rate-limit keys are sha256(IP_SALT + ip), no raw IPs stored.
+#   GROQ_API_KEY  optional. Adds Groq llama-3.3-70b as the first model.
+#   GEMINI_API_KEY optional. Adds Gemini flash as the second model.
+# With neither key set it runs on Workers AI only (the [ai] binding, no key needed).
+
+name = "vk-brain"
+main = "worker.js"
+compatibility_date = "2026-07-01"
+
+[ai]
+binding = "AI"
+
+# Rate-limit counters (30 per IP per day, 200 global per day), 2 day TTL.
+# Create with: npx wrangler kv namespace create VK_LIMITS (done; id below).
+[[kv_namespaces]]
+binding = "LIMITS"
+id = "492a44e1829e4c378b399b86bfeed122"

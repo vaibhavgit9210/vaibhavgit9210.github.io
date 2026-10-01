@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Moving Illustrations · Vaibhav Kumar</title>
+<meta name="description" content="Moving illustrations by Vaibhav Kumar: animations, music and voice visualizers, render tests, ambient toys and data stories, all live in the browser.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23060a13'/%3E%3Ctext x='32' y='46' font-size='38' text-anchor='middle'%3E%F0%9F%8E%9E%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --room:#6ee7ff;
+  --bg:#060a13;
+  --card-border:rgba(255,255,255,.09);
+  --text:#e6edf7;
+  --muted:#8b98ad;
+  --accent:#6ee7ff;
+  --accent2:#a78bfa;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{overflow-x:hidden}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  line-height:1.5;overflow-x:hidden;min-height:100vh;
+  background-image:
+    radial-gradient(1px 1px at 40px 60px,rgba(140,190,255,.5),transparent),
+    radial-gradient(1px 1px at 180px 140px,rgba(167,139,250,.4),transparent),
+    radial-gradient(1.5px 1.5px at 300px 40px,rgba(110,231,255,.45),transparent),
+    radial-gradient(1px 1px at 420px 200px,rgba(255,255,255,.3),transparent),
+    radial-gradient(1px 1px at 560px 90px,rgba(167,139,250,.4),transparent);
+  background-size:600px 260px;
+}
+::selection{background:var(--accent2);color:#0b0f1a}
+
+/* CRT scanlines + vignette */
+body::before{
+  content:"";position:fixed;inset:0;z-index:90;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 1px,transparent 1px 3px);
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:91;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.45) 100%);
+}
+
+/* shared room nav (identical in arcade/, toolbox/, moving-illustrations/; colour from --room) */
+.roomnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px clamp(14px,4vw,32px);background:rgba(6,10,19,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,255,255,.09)}
+.roomnav .home{color:#e6edf7;text-decoration:none;font-weight:800;letter-spacing:2px;font-size:1rem}
+.roomnav nav{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px 6px}
+.roomnav nav a{color:#8b98ad;text-decoration:none;font-size:.78rem;letter-spacing:1px;padding:6px 11px;border-radius:99px;border:1px solid transparent;white-space:nowrap}
+.roomnav nav a:hover{color:#e6edf7;border-color:rgba(255,255,255,.09)}
+.roomnav nav a[aria-current=page]{color:var(--room);border-color:color-mix(in srgb,var(--room) 50%,transparent);background:color-mix(in srgb,var(--room) 10%,transparent)}
+@media(max-width:520px){.roomnav nav a{padding:5px 8px;font-size:.72rem;letter-spacing:.5px}}
+
+.wrap{position:relative;z-index:2;max-width:1120px;margin:0 auto;padding:56px clamp(14px,4vw,32px) 60px}
+
+h1{
+  text-align:center;margin-bottom:56px;
+  font-size:clamp(1.9rem,7.4vw,4.2rem);font-weight:800;letter-spacing:.12em;line-height:1.1;
+  color:var(--accent);
+  text-shadow:0 0 6px rgba(110,231,255,.75),0 0 26px rgba(110,231,255,.4),0 0 64px rgba(167,139,250,.45);
+  animation:flicker 5s infinite;
+}
+h1 span{display:block;color:var(--accent2);
+  text-shadow:0 0 6px rgba(167,139,250,.8),0 0 26px rgba(167,139,250,.45),0 0 64px rgba(110,231,255,.3)}
+@keyframes flicker{0%,100%{opacity:1}93%{opacity:1}94%{opacity:.6}95%{opacity:1}97%{opacity:.8}98%{opacity:1}}
+
+/* gallery */
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}
+a.piece{
+  display:block;text-decoration:none;color:var(--text);border-radius:14px;overflow:hidden;
+  background:linear-gradient(160deg,rgba(110,231,255,.07),rgba(167,139,250,.07));
+  border:1px solid var(--card-border);
+  transition:transform .25s,border-color .25s,box-shadow .25s;
+}
+a.piece:hover,a.piece:focus-visible{
+  transform:translateY(-6px);border-color:var(--accent2);outline:none;
+  box-shadow:0 0 0 1px rgba(167,139,250,.35),0 22px 60px rgba(110,231,255,.12);
+}
+.frame{position:relative;display:block;aspect-ratio:16/10;overflow:hidden;background:#000;border-bottom:1px solid var(--card-border)}
+.frame img{width:100%;height:100%;object-fit:cover;object-position:center top;display:block;transition:transform .4s ease}
+a.piece:hover .frame img{transform:scale(1.045)}
+.frame::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(115deg,rgba(255,255,255,.06) 0%,transparent 30%),
+    repeating-linear-gradient(0deg,rgba(0,0,0,.12) 0 1px,transparent 1px 3px);
+}
+.cap{display:flex;flex-direction:column;gap:3px;padding:13px 16px 15px}
+.cap .name{font-size:1rem;font-weight:800;letter-spacing:.5px}
+.cap .tag{color:var(--accent2);font-size:.7rem;letter-spacing:2px;text-transform:uppercase}
+
+footer{text-align:center;margin-top:64px;font-size:.75rem;letter-spacing:2px}
+footer a{color:var(--muted);text-decoration:none}
+footer a:hover{color:var(--accent)}
+
+@media (max-width:520px){
+  .gallery{grid-template-columns:1fr 1fr;gap:12px}
+  .cap{padding:10px 11px 12px}
+  .cap .name{font-size:.86rem}
+  .cap .tag{font-size:.6rem;letter-spacing:1px}
+  h1{margin-bottom:32px}
+}
+@media (max-width:340px){.gallery{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="roomnav"><a class="home" href="../">VK</a><nav aria-label="Rooms"><a href="../arcade/">Arcade</a><a href="../toolbox/">Toolbox</a><a href="../moving-illustrations/" aria-current="page">Moving Illustrations</a></nav></header>
+
+<main class="wrap">
+  <h1>MOVING <span>ILLUSTRATIONS</span></h1>
+
+  <div class="gallery">
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/anime-voice-fights/" target="_blank" rel="noopener">
+      <span class="frame"><img src="previews/vocal-manifold.jpg" alt="Pratima, a voice drawn as a rotating 3D point cloud" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">Pratima</span><span class="tag">voice point cloud</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/anubhav/" target="_blank" rel="noopener">
+      <span class="frame"><img src="../arcade/previews/anubhav.jpg" alt="anubhav, aurora curtains over a starfield" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">anubhav</span><span class="tag">music visualizer</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/bonfire/" target="_blank" rel="noopener">
+      <span class="frame"><img src="../arcade/previews/bonfire.jpg" alt="bonfire, a burning pyre of logs in the dark" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">bonfire</span><span class="tag">ambient procedural fire</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/train-robbery/" target="_blank" rel="noopener">
+      <span class="frame"><img src="../arcade/previews/train-robbery.jpg" alt="Bandits riding toward a steam train at dusk" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">The Iron Horse Hold-Up</span><span class="tag">WebGL train heist</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/simulation-cam/" target="_blank" rel="noopener">
+      <span class="frame"><img src="previews/simulation-cam.jpg" alt="Simulation Cam, a face and hand boxed by the tracking overlay" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">Simulation Cam</span><span class="tag">webcam tracking overlay</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/gravity-well/" target="_blank" rel="noopener">
+      <span class="frame"><img src="previews/gravity-well.jpg" alt="Gravity Well, planets orbiting a star in a starfield" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">Gravity Well</span><span class="tag">n body sandbox</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/spider/" target="_blank" rel="noopener">
+      <span class="frame"><img src="previews/spider.jpg" alt="A glowing eight-legged stick spider rig" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">Stick Spider</span><span class="tag">procedural IK creature</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/doobki/" target="_blank" rel="noopener">
+      <span class="frame"><img src="../arcade/previews/doobki-hub.jpg" alt="doobki hub, one sea-fall scene shown several ways" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">doobki hub</span><span class="tag">render test hub</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/doobki/pixel-fall/" target="_blank" rel="noopener">
+      <span class="frame"><img src="previews/pixel-fall.jpg" alt="A pixel-art diver splashing into the sea" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">Skyfall, pixel art</span><span class="tag">pixel art fall</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/doobki/freefall/" target="_blank" rel="noopener">
+      <span class="frame"><img src="previews/freefall.jpg" alt="A smooth vector diver plunging into the sea after the splash" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">Freefall, smooth vector</span><span class="tag">vector fall study</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/doobki/game-art-styles/low-poly/" target="_blank" rel="noopener">
+      <span class="frame"><img src="../arcade/previews/low-poly.jpg" alt="A low-poly island in a flat-shaded sea" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">Low-Poly Island</span><span class="tag">low poly WebGL2</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/doobki/third-person/" target="_blank" rel="noopener">
+      <span class="frame"><img src="previews/third-person.jpg" alt="A diver seen from behind, falling through clouds toward a raycast sea" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">Skyfall, third person</span><span class="tag">third person fall</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/gojo-vs-saitama/" target="_blank" rel="noopener">
+      <span class="frame"><img src="../arcade/previews/gojo-vs-saitama.jpg" alt="Gojo and Saitama squaring off in a canvas brawl" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">Gojo vs Saitama</span><span class="tag">anime brawl animation</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/gojo-hd/" target="_blank" rel="noopener">
+      <span class="frame"><img src="previews/gojo-hd.jpg" alt="Gojo falling inside his barrier over Shibuya, vector drawn" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">The Strongest, HD Cut</span><span class="tag">Gojo vector cut</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/gojo/" target="_blank" rel="noopener">
+      <span class="frame"><img src="previews/gojo-pixel.jpg" alt="Gojo falling inside his barrier over Shibuya as an 8-bit sprite" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">The Strongest, Pixel Cut</span><span class="tag">Gojo 8 bit cut</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/scale/" target="_blank" rel="noopener">
+      <span class="frame"><img src="../arcade/previews/scale.jpg" alt="Scale of the Universe, a zoom out from a desk to the cosmos" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">Scale of the Universe</span><span class="tag">zoom desk to cosmos</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/night-sky/" target="_blank" rel="noopener">
+      <span class="frame"><img src="../arcade/previews/night-sky.jpg" alt="A computed star chart of the night sky over Bangalore" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">Night Sky over Bangalore</span><span class="tag">computed star chart</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/tracka-packet/" target="_blank" rel="noopener">
+      <span class="frame"><img src="../arcade/previews/tracka-packet.jpg" alt="Traceroute packets animated along submarine cables on a world map" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">tracka packet</span><span class="tag">packets on cables</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/decay-democracy/" target="_blank" rel="noopener">
+      <span class="frame"><img src="../arcade/previews/decay-democracy.jpg" alt="The Slow Decay of Democracy, a scrollytelling data story" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">The Slow Decay of Democracy</span><span class="tag">democracy data story</span></span>
+    </a>
+    <a class="piece" href="https://vaibhavkumar.is-a.dev/notepad-ideas-since-2018/disaster-history/" target="_blank" rel="noopener">
+      <span class="frame"><img src="../previews/disaster-history.jpg" alt="A Century of Disasters, a chart of disaster deaths per year since 1900" loading="lazy" decoding="async"></span>
+      <span class="cap"><span class="name">A Century of Disasters</span><span class="tag">disaster data story</span></span>
+    </a>
+  </div>
+
+  <footer><a href="../">home</a></footer>
+</main>
+<script>
+/* anonymous visit beacon: counts loads + presence heartbeats, no cookies */
+(function(){
+  if (location.protocol === "file:" || location.hostname === "localhost") return;
+  var EP = "https://site-analytics.vaibhavpro9210.workers.dev/ping";
+  var sid = sessionStorage.getItem("va_sid");
+  if (!sid) { sid = Math.random().toString(36).slice(2) + Date.now().toString(36); sessionStorage.setItem("va_sid", sid); }
+  function send(kind){
+    try { navigator.sendBeacon(EP, new Blob([JSON.stringify({sid:sid, page:location.pathname, kind:kind})], {type:"text/plain"})); } catch(e){}
+  }
+  send("load");
+  setInterval(function(){ if (document.visibilityState === "visible") send("beat"); }, 60000);
+})();
+</script>
+</body>
+</html>

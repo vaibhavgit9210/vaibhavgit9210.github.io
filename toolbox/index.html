@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Toolbox · Vaibhav Kumar</title>
+<meta name="description" content="Tools, dashboards and utilities built by Vaibhav Kumar, all live in the browser.">
+<meta name="theme-color" content="#060a13">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23060a13'/%3E%3Ctext x='32' y='46' font-size='38' text-anchor='middle'%3E%F0%9F%A7%B0%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --room:#fbbf24;
+  --bg:#060a13;
+  --card:rgba(255,255,255,.035);
+  --line:rgba(255,255,255,.09);
+  --text:#e6edf7;
+  --muted:#8b98ad;
+  --amber:#fbbf24;
+  --green:#34d399;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{overflow-x:hidden}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  line-height:1.5;overflow-x:hidden;min-height:100vh;
+  background-image:
+    radial-gradient(1px 1px at 40px 60px,rgba(251,191,36,.45),transparent),
+    radial-gradient(1px 1px at 180px 140px,rgba(52,211,153,.4),transparent),
+    radial-gradient(1.5px 1.5px at 300px 40px,rgba(255,255,255,.35),transparent),
+    radial-gradient(1px 1px at 420px 200px,rgba(251,191,36,.3),transparent),
+    radial-gradient(1px 1px at 560px 90px,rgba(52,211,153,.35),transparent),
+    radial-gradient(circle at 1px 1px,rgba(255,255,255,.045) 1px,transparent 1.5px);
+  background-size:600px 260px,600px 260px,600px 260px,600px 260px,600px 260px,22px 22px;
+}
+::selection{background:var(--amber);color:#0b0f1a}
+
+/* CRT scanlines + vignette */
+body::before{
+  content:"";position:fixed;inset:0;z-index:90;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0 1px,transparent 1px 3px);
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:91;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 58%,rgba(0,0,0,.5) 100%);
+}
+
+/* shared room nav (identical in arcade/, toolbox/, moving-illustrations/; colour from --room) */
+.roomnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px clamp(14px,4vw,32px);background:rgba(6,10,19,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,255,255,.09)}
+.roomnav .home{color:#e6edf7;text-decoration:none;font-weight:800;letter-spacing:2px;font-size:1rem}
+.roomnav nav{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px 6px}
+.roomnav nav a{color:#8b98ad;text-decoration:none;font-size:.78rem;letter-spacing:1px;padding:6px 11px;border-radius:99px;border:1px solid transparent;white-space:nowrap}
+.roomnav nav a:hover{color:#e6edf7;border-color:rgba(255,255,255,.09)}
+.roomnav nav a[aria-current=page]{color:var(--room);border-color:color-mix(in srgb,var(--room) 50%,transparent);background:color-mix(in srgb,var(--room) 10%,transparent)}
+@media(max-width:520px){.roomnav nav a{padding:5px 8px;font-size:.72rem;letter-spacing:.5px}}
+
+.wrap{position:relative;z-index:2;max-width:1120px;margin:0 auto;padding:48px clamp(14px,4vw,32px) 64px}
+
+h1{
+  text-align:center;margin:8px 0 48px;
+  font-size:clamp(2.6rem,11vw,5rem);font-weight:800;letter-spacing:clamp(4px,1.6vw,10px);
+  color:var(--amber);
+  text-shadow:0 0 6px rgba(251,191,36,.75),0 0 26px rgba(251,191,36,.45),0 0 64px rgba(52,211,153,.3);
+  animation:hum 5s infinite;
+}
+@keyframes hum{0%,91%,100%{opacity:1}92%{opacity:.6}93%{opacity:1}96%{opacity:.8}97%{opacity:1}}
+
+/* cards */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}
+a.tool{
+  position:relative;display:flex;flex-direction:column;border-radius:14px;overflow:hidden;
+  text-decoration:none;color:var(--text);
+  background:linear-gradient(160deg,rgba(251,191,36,.07),rgba(52,211,153,.05));
+  border:1px solid var(--line);
+  transition:transform .25s,border-color .25s,box-shadow .25s;
+}
+a.tool::before{ /* bench clamp */
+  content:"";position:absolute;top:0;left:18px;right:18px;height:2px;z-index:2;
+  background:linear-gradient(90deg,transparent,rgba(251,191,36,.6),transparent);opacity:.5;transition:opacity .25s;
+}
+a.tool:hover,a.tool:focus-visible{
+  transform:translateY(-6px);border-color:var(--amber);outline:none;
+  box-shadow:0 0 0 1px rgba(251,191,36,.3),0 20px 56px rgba(251,191,36,.12);
+}
+a.tool:hover::before,a.tool:focus-visible::before{opacity:1}
+.screen{position:relative;display:block;aspect-ratio:16/10;overflow:hidden;background:#000;border-bottom:1px solid var(--line)}
+.screen img{width:100%;height:100%;object-fit:cover;object-position:center top;display:block;transition:transform .35s ease}
+a.tool:hover .screen img{transform:scale(1.05)}
+.screen::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:
+    linear-gradient(115deg,rgba(255,255,255,.06) 0%,transparent 30%),
+    repeating-linear-gradient(0deg,rgba(0,0,0,.07) 0 1px,transparent 1px 3px);
+}
+.body{display:flex;flex-direction:column;gap:3px;padding:13px 16px 15px}
+.body b{font-size:1rem;font-weight:800;letter-spacing:.5px}
+.body small{color:var(--green);font-size:.7rem;letter-spacing:2px;text-transform:uppercase}
+.body b,.body small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+@media (max-width:520px){
+  .grid{grid-template-columns:1fr 1fr;gap:12px}
+  .body{padding:10px 11px 12px}
+  .body b{font-size:.86rem}
+  .body small{font-size:.6rem;letter-spacing:1px}
+  h1{margin-bottom:32px}
+}
+@media (max-width:340px){.grid{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="roomnav"><a class="home" href="../">VK</a><nav aria-label="Rooms"><a href="../arcade/">Arcade</a><a href="../toolbox/" aria-current="page">Toolbox</a><a href="../moving-illustrations/">Moving Illustrations</a></nav></header>
+
+<main class="wrap">
+  <h1>TOOLBOX</h1>
+  <div class="grid">
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/space-now/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../arcade/previews/space-now.jpg" alt="Space Right Now dashboard with ISS position, crew, launches and NASA photo of the day" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>Space Right Now</b><small>live space dashboard</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/Ananta/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../arcade/previews/ananta.jpg" alt="Ananta wisdom chatbot welcome screen" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>Ananta</b><small>wisdom chatbot</small></span>
+    </a>
+    <a class="tool" href="https://avsar.pages.dev/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../previews/avsar.jpg" alt="Avsar exam finder with filters and a list of upcoming UPSC exams" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>Avsar</b><small>opportunity finder</small></span>
+    </a>
+    <a class="tool" href="https://cyber-sahayata.pages.dev/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../previews/cyber-sahayata.jpg" alt="Cyber Sahayata home page with Start a report button and the 1930 helpline" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>Cyber Sahayata</b><small>cybercrime portal</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/build-what-moves-india3/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../previews/civicflow.jpg" alt="CivicFlow learner&#x27;s licence application landing page" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>CivicFlow</b><small>learner licence redesign</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/mygoldfund/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../previews/mygoldfund.jpg" alt="mygoldfund Signal board splitting a monthly budget between gold and silver funds" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>mygoldfund</b><small>allocation dashboard</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/bibliotheca/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../previews/bibliotheca.jpg" alt="bibliotheca paper picker listing the GATE 2026 CS1 and CS2 mock tests" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>bibliotheca</b><small>GATE 2026 mocks</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/readme/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../previews/readings.jpg" alt="readings site showing a list of long form notes" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>readings</b><small>long form notes</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/knowitall/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../previews/knowitall.jpg" alt="knowitall news brief listing headlines" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>knowitall</b><small>daily news brief</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/hireme/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../previews/hireme.jpg" alt="hireme dashboard of scored job openings" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>hireme</b><small>job match dashboard</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/jsondiff/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../previews/codetools.jpg" alt="CodeTools diff view comparing two JSON files with changed lines highlighted" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>CodeTools</b><small>formatter and diff</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/quicknote/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../previews/quicknote.jpg" alt="QuickNote shared clipboard with a note pasted into the text box" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>QuickNote</b><small>cross device clipboard</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/docxviewer/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../previews/docxviewer.jpg" alt="DOCX Viewer rendering a sample project brief with a list and a table" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>DOCX Viewer</b><small>Word file viewer</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/mypager/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../previews/board.jpg" alt="Board split into three panes: a week plan, a sketch and notes" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>Board</b><small>splittable whiteboard</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/webhook/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../previews/webhook.jpg" alt="Webhook Receiver live request inspector" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>Webhook Receiver</b><small>live webhook inspector</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/blogvlog/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../previews/blogvlog.jpg" alt="BlogVlog 8 bit style blog home page" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>BlogVlog</b><small>8 bit blog</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/notepad-ideas-since-2018/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../previews/ideas.jpg" alt="notepad ideas since 2018 hub page of built college ideas" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>notepad ideas</b><small>college ideas, built</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/notepad-ideas-since-2018/enigma/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../previews/enigma.jpg" alt="Die Enigma machine replica with three rotors and a reflector" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>Die Enigma</b><small>working Enigma replica</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/notepad-ideas-since-2018/password-generator/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../previews/password-generator.jpg" alt="Password Generator showing a random password, entropy meter and character set toggles" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>Password Generator</b><small>entropy meter</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/countdown-timer/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../arcade/previews/countdown.jpg" alt="Countdown to 2027 timer and sprint tracker" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>Countdown to 2027</b><small>countdown and sprint</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/css-theme-switcher/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../arcade/previews/theme-switcher.jpg" alt="Theme Switcher demo in its solar theme with the theme menu open" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>Theme Switcher</b><small>CSS theme demo</small></span>
+    </a>
+    <a class="tool" href="https://vaibhavkumar.is-a.dev/weather/" target="_blank" rel="noopener">
+      <span class="screen"><img src="../arcade/previews/weather.jpg" alt="Weather App city search showing temperature, humidity and wind" loading="lazy" decoding="async" width="640" height="400"></span>
+      <span class="body"><b>Weather App</b><small>first deploy, 2022</small></span>
+    </a>
+  </div>
+</main>
+<script>
+/* anonymous visit beacon: counts loads + presence heartbeats, no cookies */
+(function(){
+  if (location.protocol === "file:" || location.hostname === "localhost") return;
+  var EP = "https://site-analytics.vaibhavpro9210.workers.dev/ping";
+  var sid = sessionStorage.getItem("va_sid");
+  if (!sid) { sid = Math.random().toString(36).slice(2) + Date.now().toString(36); sessionStorage.setItem("va_sid", sid); }
+  function send(kind){
+    try { navigator.sendBeacon(EP, new Blob([JSON.stringify({sid:sid, page:location.pathname, kind:kind})], {type:"text/plain"})); } catch(e){}
+  }
+  send("load");
+  setInterval(function(){ if (document.visibilityState === "visible") send("beat"); }, 60000);
+})();
+</script>
+</body>
+</html>
