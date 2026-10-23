@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
 <title>Moving Illustrations · Vaibhav Kumar</title>
 <meta name="description" content="Moving illustrations by Vaibhav Kumar: animations, music and voice visualizers, render tests, ambient toys and data stories, all live in the browser.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23060a13'/%3E%3Ctext x='32' y='46' font-size='38' text-anchor='middle'%3E%F0%9F%8E%9E%EF%B8%8F%3C/text%3E%3C/svg%3E">
@@ -43,13 +44,18 @@ body::after{
 }
 
 /* shared room nav (identical in arcade/, toolbox/, moving-illustrations/; colour from --room) */
-.roomnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px clamp(14px,4vw,32px);background:rgba(6,10,19,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,255,255,.09)}
-.roomnav .home{color:#e6edf7;text-decoration:none;font-weight:800;letter-spacing:2px;font-size:1rem}
-.roomnav nav{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px 6px}
-.roomnav nav a{color:#8b98ad;text-decoration:none;font-size:.78rem;letter-spacing:1px;padding:6px 11px;border-radius:99px;border:1px solid transparent;white-space:nowrap}
-.roomnav nav a:hover{color:#e6edf7;border-color:rgba(255,255,255,.09)}
-.roomnav nav a[aria-current=page]{color:var(--room);border-color:color-mix(in srgb,var(--room) 50%,transparent);background:color-mix(in srgb,var(--room) 10%,transparent)}
-@media(max-width:520px){.roomnav nav a{padding:5px 8px;font-size:.72rem;letter-spacing:.5px}}
+/* floating glass capsules (macOS 26+): the page scrolls under them, fading at the top edge */
+.roomnav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:max(12px,env(safe-area-inset-top)) max(clamp(14px,4vw,32px),env(safe-area-inset-right)) 12px max(clamp(14px,4vw,32px),env(safe-area-inset-left));pointer-events:none}
+.roomnav::before{content:"";position:absolute;inset:0 0 -18px;z-index:-1;background:linear-gradient(rgba(6,10,19,.9),rgba(6,10,19,.55) 60%,rgba(6,10,19,0))}
+.roomnav>*{pointer-events:auto}
+.roomnav .home,.roomnav nav{border-radius:999px;background:rgba(20,27,42,.55);-webkit-backdrop-filter:blur(24px) saturate(170%);backdrop-filter:blur(24px) saturate(170%);box-shadow:inset 0 .5px 0 rgba(255,255,255,.22),inset 0 0 0 .5px rgba(255,255,255,.08),0 10px 30px rgba(0,0,0,.32)}
+.roomnav .home{display:grid;place-items:center;height:38px;padding:0 15px;color:#e6edf7;text-decoration:none;font-weight:800;letter-spacing:2px;font-size:.95rem;flex:none}
+.roomnav nav{display:flex;gap:2px;padding:4px;min-width:0}
+.roomnav nav a{color:#8b98ad;text-decoration:none;font-size:.78rem;letter-spacing:1px;padding:7px 12px;border-radius:999px;white-space:nowrap;transition:color .2s,background-color .2s}
+.roomnav nav a:hover,.roomnav nav a:focus-visible{color:#e6edf7;background:rgba(255,255,255,.08);outline:none}
+.roomnav nav a[aria-current=page]{color:var(--room);background:color-mix(in srgb,var(--room) 16%,rgba(255,255,255,.05));box-shadow:inset 0 .5px 0 rgba(255,255,255,.22),inset 0 0 0 .5px color-mix(in srgb,var(--room) 45%,transparent)}
+@media(max-width:520px){.roomnav{gap:6px}.roomnav .home{height:34px;padding:0 11px;font-size:.85rem;letter-spacing:1px}.roomnav nav a{padding:6px 8px;font-size:.66rem;letter-spacing:.3px}}
+@media(prefers-reduced-transparency:reduce){.roomnav .home,.roomnav nav{background:#141b2a;-webkit-backdrop-filter:none;backdrop-filter:none}}
 
 .wrap{position:relative;z-index:2;max-width:1120px;margin:0 auto;padding:56px clamp(14px,4vw,32px) 60px}
 
@@ -67,16 +73,17 @@ h1 span{display:block;color:var(--accent2);
 /* gallery */
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}
 a.piece{
-  display:block;text-decoration:none;color:var(--text);border-radius:14px;overflow:hidden;
+  position:relative;display:block;text-decoration:none;color:var(--text);border-radius:20px;overflow:hidden;
   background:linear-gradient(160deg,rgba(110,231,255,.07),rgba(167,139,250,.07));
-  border:1px solid var(--card-border);
+  border:0;box-shadow:0 8px 24px rgba(0,0,0,.22);-webkit-backdrop-filter:blur(20px) saturate(160%%);backdrop-filter:blur(20px) saturate(160%%);
   transition:transform .25s,border-color .25s,box-shadow .25s;
 }
+a.piece::after{content:"";position:absolute;inset:0;z-index:3;border-radius:inherit;pointer-events:none;box-shadow:inset 0 .5px 0 rgba(255,255,255,.28),inset 0 0 0 .5px rgba(255,255,255,.1)}
 a.piece:hover,a.piece:focus-visible{
-  transform:translateY(-6px);border-color:var(--accent2);outline:none;
+  transform:translateY(-6px);outline:none;
   box-shadow:0 0 0 1px rgba(167,139,250,.35),0 22px 60px rgba(110,231,255,.12);
 }
-.frame{position:relative;display:block;aspect-ratio:16/10;overflow:hidden;background:#000;border-bottom:1px solid var(--card-border)}
+.frame{position:relative;display:block;aspect-ratio:16/10;overflow:hidden;background:#000;border-bottom:.5px solid rgba(255,255,255,.1)}
 .frame img{width:100%;height:100%;object-fit:cover;object-position:center top;display:block;transition:transform .4s ease}
 a.piece:hover .frame img{transform:scale(1.045)}
 .frame::after{
@@ -100,6 +107,7 @@ footer a:hover{color:var(--accent)}
   h1{margin-bottom:32px}
 }
 @media (max-width:340px){.gallery{grid-template-columns:1fr}}
+@media (prefers-reduced-transparency:reduce){a.piece{-webkit-backdrop-filter:none;backdrop-filter:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
