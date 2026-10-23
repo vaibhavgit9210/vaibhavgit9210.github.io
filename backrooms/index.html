@@ -3,17 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#000000">
 <title>DON'T LOOK BACK</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23060a13'/%3E%3Ctext x='32' y='46' font-size='38' text-anchor='middle'%3E%F0%9F%91%81%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <style>
   html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;
-    font-family:"Courier New",monospace;-webkit-user-select:none;user-select:none;touch-action:none}
+    font-family:"Courier New",monospace;-webkit-user-select:none;user-select:none;touch-action:none;
+    -webkit-tap-highlight-color:transparent}
   #view{position:fixed;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges}
   #vignette{position:fixed;inset:0;pointer-events:none;
     background:radial-gradient(ellipse at center,transparent 42%,rgba(0,0,0,.55) 100%)}
   #redflash{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(120,0,0,.55),rgba(40,0,0,.9));opacity:0;transition:opacity .12s}
   .overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    text-align:center;color:#cfc48a;background:rgba(6,6,2,.88);z-index:10;padding:20px;box-sizing:border-box}
+    text-align:center;color:#cfc48a;background:rgba(6,6,2,.88);z-index:10;box-sizing:border-box;
+    padding:max(20px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))}
   .overlay h1{font-size:clamp(26px,6vw,52px);letter-spacing:.35em;margin:0 0 6px;color:#e8dc9a;text-shadow:0 0 18px rgba(200,180,80,.35)}
   .overlay h2{font-size:clamp(18px,4vw,30px);letter-spacing:.25em;margin:0 0 10px;color:#d66}
   .overlay p{max-width:560px;line-height:1.6;font-size:14px;color:#a99e6d;margin:6px 0}
@@ -25,12 +29,12 @@
   #end p{color:#cfd8b8;text-shadow:0 1px 3px #000}
   #end .stats{color:#e8e2b0}
   .hidden{display:none!important}
-  #hud{position:fixed;left:14px;bottom:14px;z-index:5;pointer-events:none}
+  #hud{position:fixed;left:max(14px,env(safe-area-inset-left));bottom:max(14px,env(safe-area-inset-bottom));z-index:5;pointer-events:none}
   #stamwrap{width:130px;height:6px;background:rgba(0,0,0,.5);border:1px solid rgba(200,190,120,.35)}
   #stam{height:100%;width:100%;background:#b7a95c;transition:width .1s linear}
-  #hint{position:fixed;top:14px;left:0;right:0;text-align:center;color:rgba(210,200,140,.85);
+  #hint{position:fixed;top:max(14px,env(safe-area-inset-top));left:env(safe-area-inset-left,0px);right:env(safe-area-inset-right,0px);text-align:center;color:rgba(210,200,140,.85);
     font-size:13px;letter-spacing:.15em;z-index:5;pointer-events:none;text-shadow:0 1px 3px #000;transition:opacity 1.2s}
-  #lvl{position:fixed;top:12px;left:14px;color:rgba(190,180,120,.6);font-size:12px;letter-spacing:.2em;z-index:5;pointer-events:none}
+  #lvl{position:fixed;top:max(12px,env(safe-area-inset-top));left:max(14px,env(safe-area-inset-left));color:rgba(190,180,120,.6);font-size:12px;letter-spacing:.2em;z-index:5;pointer-events:none}
   #err{position:fixed;top:0;left:0;color:#f55;background:rgba(0,0,0,.8);font-size:11px;z-index:99;white-space:pre-wrap;max-width:90vw}
   /* touch controls */
   #touchui{position:fixed;inset:0;z-index:6;pointer-events:none}
@@ -38,8 +42,8 @@
     background:rgba(20,18,4,.45);border:1px solid rgba(200,190,120,.4);color:#d8cd8f;
     font-family:inherit;font-size:11px;letter-spacing:.05em;display:flex;align-items:center;justify-content:center;flex-direction:column}
   .tbtn:active,.tbtn.on{background:rgba(90,80,20,.55)}
-  #btnLook{right:18px;bottom:110px}
-  #btnRun{right:18px;bottom:22px}
+  #btnLook{right:max(18px,env(safe-area-inset-right));bottom:calc(max(22px,env(safe-area-inset-bottom)) + 88px)}
+  #btnRun{right:max(18px,env(safe-area-inset-right));bottom:max(22px,env(safe-area-inset-bottom))}
   #joyBase{position:absolute;width:110px;height:110px;border-radius:50%;border:1px solid rgba(200,190,120,.3);
     background:rgba(20,18,4,.25);display:none;pointer-events:none}
   #joyKnob{position:absolute;width:46px;height:46px;border-radius:50%;background:rgba(190,180,110,.45);display:none;pointer-events:none}
