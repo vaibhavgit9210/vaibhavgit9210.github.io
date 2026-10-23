@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#060a13">
 <title>ASTEROIDS · VK Arcade</title>
 <meta name="description" content="The 1979 classic, rebuilt in neon vectors. Rotate, thrust, shoot, survive.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23060a13'/%3E%3Ctext x='32' y='46' font-size='38' text-anchor='middle'%3E%E2%98%84%EF%B8%8F%3C/text%3E%3C/svg%3E">
@@ -15,6 +17,11 @@
   --accent2:#a78bfa;
   --neon:#f0abfc;
   --gold:#fcd34d;
+  /* glass for the floating chrome, as on the arcade page */
+  --glass:rgba(20,27,42,.55);
+  --blur:blur(24px) saturate(170%);
+  --rim:inset 0 .5px 0 rgba(255,255,255,.22), inset 0 0 0 .5px rgba(255,255,255,.08);
+  --drop:0 10px 30px rgba(0,0,0,.32), 0 1px 3px rgba(0,0,0,.22);
 }
 *{margin:0;padding:0;box-sizing:border-box}
 .hidden{display:none !important}
@@ -24,6 +31,7 @@ body{
   font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   -webkit-user-select:none;user-select:none;
   touch-action:none;
+  -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;
 }
 /* CRT scanlines + vignette, kin to the arcade page */
 body::before{
@@ -37,11 +45,16 @@ body::after{
 canvas#game{position:fixed;inset:0;display:block}
 
 a.back{
-  position:fixed;top:14px;left:16px;z-index:40;
+  position:fixed;top:max(9px, env(safe-area-inset-top));left:max(12px, env(safe-area-inset-left));z-index:40;
   color:var(--muted);text-decoration:none;font-size:.8rem;letter-spacing:1px;
-  transition:color .2s;
+  padding:5px 12px;border-radius:999px;
+  background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  box-shadow:var(--rim), var(--drop);
+  transition:color .2s ease-out, transform .15s ease-out;
 }
 a.back:hover{color:var(--accent)}
+a.back:active{transform:scale(.97)}
+a.back:focus-visible{outline:none;color:var(--accent);box-shadow:var(--rim), inset 0 0 0 1px rgba(110,231,255,.55), 0 0 0 4px rgba(110,231,255,.18)}
 
 /* HUD */
 #hud{
@@ -49,7 +62,7 @@ a.back:hover{color:var(--accent)}
   display:grid;grid-template-columns:1fr auto 1fr;align-items:start;
   padding:0 16px;font-size:1.05rem;letter-spacing:2px;
 }
-#hud{padding-top:26px}
+#hud{padding:calc(30px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left))}
 #score{color:var(--text);text-shadow:0 0 8px rgba(110,231,255,.45);justify-self:start}
 #hiHud{color:var(--muted);font-size:.85rem;justify-self:center;letter-spacing:3px}
 #lives{justify-self:end;display:flex;gap:6px;align-items:center;min-height:18px}
@@ -85,13 +98,16 @@ a.back:hover{color:var(--accent)}
 .newhi{color:var(--gold);letter-spacing:3px;animation:blinkc 1.2s step-end infinite}
 
 .btn{
-  font:inherit;color:var(--muted);background:rgba(255,255,255,.04);
-  border:1px solid rgba(255,255,255,.12);border-radius:8px;
-  padding:8px 18px;letter-spacing:2px;font-size:.8rem;cursor:pointer;
-  transition:color .2s,border-color .2s;
+  font:inherit;color:var(--muted);border:0;border-radius:999px;
+  background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  box-shadow:var(--rim), 0 4px 14px rgba(0,0,0,.25);
+  padding:9px 20px;letter-spacing:2px;font-size:.8rem;cursor:pointer;
+  transition:color .2s ease-out, box-shadow .2s ease-out, transform .15s ease-out;
 }
-.btn:hover{color:var(--accent);border-color:rgba(110,231,255,.4)}
-.btn.on{color:var(--accent);border-color:rgba(110,231,255,.55);box-shadow:0 0 12px rgba(110,231,255,.25)}
+.btn:hover{color:var(--accent);box-shadow:var(--rim), inset 0 0 0 .5px rgba(110,231,255,.45), 0 4px 14px rgba(0,0,0,.25)}
+.btn:active{transform:scale(.97)}
+.btn:focus-visible{outline:none;color:var(--accent);box-shadow:var(--rim), inset 0 0 0 1px rgba(110,231,255,.55), 0 0 0 4px rgba(110,231,255,.18)}
+.btn.on{color:var(--accent);box-shadow:var(--rim), inset 0 0 0 1px rgba(110,231,255,.55), 0 0 12px rgba(110,231,255,.25)}
 #gyroBtn{display:none}
 body.touch #gyroBtn{display:inline-block}
 
@@ -114,10 +130,15 @@ body.touch #gyroBtn{display:inline-block}
 
 /* sound toggle */
 #sndBtn{
-  position:fixed;bottom:14px;left:16px;z-index:40;
-  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);
-  border-radius:8px;color:var(--muted);font-size:1rem;padding:6px 10px;cursor:pointer;
+  position:fixed;bottom:max(14px, env(safe-area-inset-bottom));left:max(16px, env(safe-area-inset-left));z-index:40;
+  display:grid;place-items:center;width:40px;height:40px;padding:0;
+  background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  border:0;border-radius:50%;box-shadow:var(--rim), var(--drop);
+  color:var(--muted);font-size:1rem;cursor:pointer;
+  transition:transform .15s ease-out, box-shadow .2s ease-out;
 }
+#sndBtn:active{transform:scale(.94)}
+#sndBtn:focus-visible{outline:none;box-shadow:var(--rim), inset 0 0 0 1px rgba(110,231,255,.55), 0 0 0 4px rgba(110,231,255,.18)}
 
 /* touch controls */
 #touchUI{position:fixed;inset:0;z-index:15;display:none}
@@ -125,20 +146,21 @@ body.touch.playing #touchUI{display:block}
 .zone{position:absolute;top:0;bottom:0;width:50%}
 #zoneL{left:0}#zoneR{right:0}
 #btnThrust{
-  position:absolute;right:18px;bottom:22px;width:76px;height:76px;border-radius:50%;
+  position:absolute;right:max(18px, env(safe-area-inset-right));bottom:max(22px, env(safe-area-inset-bottom));width:76px;height:76px;border-radius:50%;
   background:rgba(240,171,252,.08);border:1px solid rgba(240,171,252,.45);
   color:var(--neon);font-size:1.7rem;display:flex;align-items:center;justify-content:center;
   box-shadow:0 0 16px rgba(240,171,252,.2);
 }
 #btnThrust:active{background:rgba(240,171,252,.22)}
 .zoneHint{
-  position:absolute;bottom:34px;color:var(--muted);font-size:.7rem;letter-spacing:2px;
+  position:absolute;bottom:calc(max(22px, env(safe-area-inset-bottom)) + 12px);color:var(--muted);font-size:.7rem;letter-spacing:2px;
   opacity:.55;pointer-events:none;
 }
-#hintL{left:22px}#hintR{right:110px}
+/* the left hint sits beside the sound button, mirroring the right hint beside thrust */
+#hintL{left:calc(max(16px, env(safe-area-inset-left)) + 54px)}#hintR{right:calc(max(18px, env(safe-area-inset-right)) + 92px)}
 
 #testResults{
-  position:fixed;bottom:14px;right:16px;z-index:95;font-size:.75rem;
+  position:fixed;bottom:max(14px, env(safe-area-inset-bottom));right:max(16px, env(safe-area-inset-right));z-index:95;font-size:.75rem;
   color:var(--gold);letter-spacing:1px;white-space:pre;text-align:right;
 }
 #demoStats{position:fixed;left:-9999px;top:0}
@@ -146,6 +168,12 @@ body.touch.playing #touchUI{display:block}
 @media (prefers-reduced-motion: reduce){
   .marquee{animation:none}
   .press,.newhi{animation:none}
+  a.back,.btn,#sndBtn{transition:none}
+}
+/* Reduce Transparency: solid chrome, no blur */
+@media (prefers-reduced-transparency: reduce){
+  :root{--glass:#141b2a}
+  a.back,.btn,#sndBtn{-webkit-backdrop-filter:none;backdrop-filter:none}
 }
 </style>
 </head>
