@@ -170,7 +170,7 @@ main{
 </style>
 </head>
 <body>
-<a class="arcade-link" href="../arcade/">&larr; arcade</a>
+<a class="arcade-link" href="../toolbox/">&larr; toolbox</a>
 <header>
   <h1><span class="live-dot" aria-hidden="true"></span>SPACE <span class="dim">·</span> RIGHT NOW</h1>
   <div class="clocks">
@@ -311,7 +311,7 @@ function renderError(p, apiName, staleRec, opts = {}) {
     ? '&#9203; ' + esc(apiName) + ' rate limit hit (shared hourly quota)'
     : '&#9888; can\'t reach ' + esc(apiName);
   let html = '<div class="err-box">' + msg +
-    ' <span class="retry">— retrying in <span id="retry-' + p + '">' + (opts.secs || 30) + '</span>s</span></div>';
+    ' <span class="retry">· retrying in <span id="retry-' + p + '">' + (opts.secs || 30) + '</span>s</span></div>';
   if (staleRec && staleRec.data) {
     html += '<div class="stale-box">showing last-good data · <b>as of ' + fmtIST(staleRec.t) + '</b></div>' +
             '<div id="stale-' + p + '"></div>';
@@ -446,7 +446,7 @@ function renderAPOD(rec) {
   setChip('apod', rec.stale ? 'stale' : 'live', rec.stale ? 'STALE · ' + fmtIST(rec.t) : 'CACHED 24h');
   let media;
   if (isVideo) {
-    media = '<a class="apod-video" href="' + esc(d.url) + '" rel="noopener" target="_blank">&#9654; today\'s APOD is a video &mdash; watch it on the source site</a>';
+    media = '<a class="apod-video" href="' + esc(d.url) + '" rel="noopener" target="_blank">&#9654; today\'s APOD is a video: watch it on the source site</a>';
   } else {
     media = '<img class="apod-img" src="' + esc(d.url) + '" alt="' + esc(d.title) + '">';
   }

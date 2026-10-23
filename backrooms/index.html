@@ -69,8 +69,8 @@
   <p>You are somewhere you shouldn't be. Find the exit.</p>
   <p>Something walks these halls behind you. Looking back only helps it find you.<br>Keep moving. It hates when you stop.</p>
   <p>They say the hum stops five doors down.</p>
-  <p id="ctlsPc">WASD / arrows &mdash; move &nbsp;&middot;&nbsp; mouse &mdash; look &nbsp;&middot;&nbsp; SHIFT &mdash; run<br>hold Q or right mouse &mdash; glance behind you</p>
-  <p id="ctlsMob" class="hidden">left thumb &mdash; move (push far to run) &nbsp;&middot;&nbsp; drag right side &mdash; look<br>&#128064; button &mdash; glance behind you &nbsp;&middot;&nbsp; landscape recommended</p>
+  <p id="ctlsPc">WASD / arrows: move &nbsp;&middot;&nbsp; mouse: look &nbsp;&middot;&nbsp; SHIFT: run<br>hold Q or right mouse: glance behind you</p>
+  <p id="ctlsMob" class="hidden">left thumb: move (push far to run) &nbsp;&middot;&nbsp; drag right side: look<br>&#128064; button: glance behind you &nbsp;&middot;&nbsp; landscape recommended</p>
   <button id="btnStart">ENTER</button>
 </div>
 
@@ -567,8 +567,8 @@ function fireExitHint(){
   const dir=exitDirWord();
   const ed=Math.hypot(G.exitFX-G.px,G.exitFY-G.py);
   let t;
-  if(ed<4.5)t='the exit is right here — the air is moving.';
-  else if(ed<9)t='a cold draft pulls '+dir+' — close now.';
+  if(ed<4.5)t='the exit is right here. the air is moving.';
+  else if(ed<9)t='a cold draft pulls '+dir+'. close now.';
   else t='you feel a faint draft '+dir+'.';
   showHint(t,4);
   G.exitGlow=1;                                          // brief green rim toward exit

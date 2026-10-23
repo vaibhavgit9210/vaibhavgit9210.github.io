@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#04050a">
-<title>THE STRONGEST — HD CUT · VK Arcade</title>
+<title>THE STRONGEST: HD CUT · VK Arcade</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23060a13'/%3E%3Ctext x='32' y='46' font-size='38' text-anchor='middle'%3E%F0%9F%8C%80%3C/text%3E%3C/svg%3E">
 <style>
   html, body { margin: 0; padding: 0; background: #04050a; height: 100%; overflow: hidden; }
@@ -29,7 +29,7 @@
 </style>
 </head>
 <body>
-<a class="back" href="../arcade/">&larr; ARCADE</a>
+<a class="back" href="../moving-illustrations/">&larr; MOVING ILLUSTRATIONS</a>
 <canvas id="cv" width="960" height="540"></canvas>
 <script>
 'use strict';
@@ -382,7 +382,7 @@ function drawFallScene() {
 
   // altitude caption
   const alt = Math.max(120, Math.round((3000 - Math.pow(prog, 1.15) * 2880) / 10) * 10);
-  txt('SHIBUYA — ' + alt + ' M', 84, 92, { size: 11, ls: 3, color: 'rgba(160,178,200,0.6)', align: 'left', weight: 500 });
+  txt('SHIBUYA · ' + alt + ' M', 84, 92, { size: 11, ls: 3, color: 'rgba(160,178,200,0.6)', align: 'left', weight: 500 });
 }
 
 // ---------- scene: night city street ----------
@@ -645,7 +645,7 @@ function renderTitle() {
   g.fillStyle = 'rgba(3,4,9,0.62)'; g.fillRect(0, 0, W, H);
   txt('THE STRONGEST', CX, 244, { size: 34, ls: 12, weight: 600, color: 'rgba(226,236,248,0.94)' });
   g.fillStyle = 'rgba(140,160,190,0.4)'; g.fillRect(CX - 130, 262, 260, 1);
-  txt('HD CUT — A JUJUTSU KAISEN PIECE', CX, 288, { size: 11, ls: 5, weight: 500, color: 'rgba(150,170,198,0.72)' });
+  txt('HD CUT · A JUJUTSU KAISEN PIECE', CX, 288, { size: 11, ls: 5, weight: 500, color: 'rgba(150,170,198,0.72)' });
   const pulse = 0.35 + 0.3 * (0.5 + 0.5 * Math.sin(gt * 2.4));
   txt('CLICK TO BEGIN', CX, 396, { size: 12, ls: 6, weight: 500, color: 'rgba(190,210,235,' + pulse.toFixed(2) + ')' });
 }
@@ -771,7 +771,7 @@ function renderReveal() {
 
   // caption
   const capA = clamp((st - 1.4) / 1.1, 0, 1) * 0.85;
-  if (capA > 0) txt('NAH — I’D WIN.', CX, 466, { size: 17, ls: 7, weight: 600, color: 'rgba(214,228,240,' + capA.toFixed(3) + ')' });
+  if (capA > 0) txt('NAH, I’D WIN.', CX, 466, { size: 17, ls: 7, weight: 600, color: 'rgba(214,228,240,' + capA.toFixed(3) + ')' });
   // replay hint
   if (st > 4) {
     const ra = clamp((st - 4) / 1, 0, 1) * (0.35 + 0.2 * Math.sin(gt * 2.5));

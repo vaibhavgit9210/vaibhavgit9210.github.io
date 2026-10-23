@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#04050a">
 <title>THE STRONGEST · VK Arcade</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23060a13'/%3E%3Ctext x='32' y='46' font-size='38' text-anchor='middle'%3E%F0%9F%91%BE%3C/text%3E%3C/svg%3E">
-<meta name="description" content="A short cinematic pixel piece — a figure falls out of the storm over the city, and the dust clears on six glowing eyes.">
+<meta name="description" content="A short cinematic pixel piece: a figure falls out of the storm over the city, and the dust clears on six glowing eyes.">
 <style>
   html,body{margin:0;height:100%;background:#04050a;overflow:hidden}
   body{display:flex;align-items:center;justify-content:center}
@@ -35,7 +35,7 @@
 </style>
 </head>
 <body>
-<a class="back" href="../arcade/">&larr; ARCADE</a>
+<a class="back" href="../moving-illustrations/">&larr; MOVING ILLUSTRATIONS</a>
 <canvas id="c" width="480" height="270"></canvas>
 <script>
 'use strict';
@@ -584,7 +584,7 @@ function render(dt){
     drawRain(perfT, false);
     if (st > 1.6){
       const a = Math.min(0.85, (st - 1.6) / 1.2);
-      drawTextC("NAH — I'D WIN.", W/2, H - BAR - 22, 1, `rgba(214,228,240,${a.toFixed(2)})`, 3);
+      drawTextC("NAH, I'D WIN.", W/2, H - BAR - 22, 1, `rgba(214,228,240,${a.toFixed(2)})`, 3);
     }
     if (st > 4){
       const a = 0.25 + 0.15*Math.sin(perfT*1.8);

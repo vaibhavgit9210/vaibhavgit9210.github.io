@@ -100,7 +100,7 @@
 </style>
 </head>
 <body>
-<a class="back" href="../arcade/">&larr; arcade</a>
+<a class="back" href="../moving-illustrations/">&larr; moving illustrations</a>
 <canvas id="c"></canvas>
 <div id="hud"></div>
 <div id="controls">
@@ -117,10 +117,10 @@
 <div id="help" hidden>
   <div class="card">
     <h1>&#129704; gravity well</h1>
-    <p><b>Drag from empty space</b> to launch a planet — the drag vector sets its
+    <p><b>Drag from empty space</b> to launch a planet: the drag vector sets its
        velocity. Long drag = fast. A dotted ghost path predicts the orbit.</p>
     <p class="hint">click a body to inspect &middot; double-click to delete &middot;
-       real n-body gravity — slingshots, merges and chaos included.</p>
+       real n-body gravity: slingshots, merges and chaos included.</p>
     <button id="btnGotIt">got it</button>
   </div>
 </div>
@@ -627,7 +627,7 @@ function updateHUD(now){
     const sp = Math.hypot(b.vx, b.vy);
     let central = null;
     for(const o of bodies) if(o !== b && (!central || o.m > central.m)) central = o;
-    let period = '&mdash;';
+    let period = '-';
     if(central && central.m > b.m){
       const d = Math.hypot(b.x-central.x, b.y-central.y);
       period = '~' + (2*Math.PI*Math.sqrt(d*d*d/(G*central.m))).toFixed(1) + 's';

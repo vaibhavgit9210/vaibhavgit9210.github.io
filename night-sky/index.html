@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#060a13">
 <title>Night Sky over Bangalore</title>
-<meta name="description" content="A real-time star chart computed — not fetched — for the sky over Bangalore. 323 stars, 30 constellations, the Moon, all from first-principles astronomy math.">
+<meta name="description" content="A real-time star chart computed, not fetched, for the sky over Bangalore. 323 stars, 30 constellations, the Moon, all from first-principles astronomy math.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%8C%3C/text%3E%3C/svg%3E">
 <style>
 :root{
@@ -142,13 +142,13 @@ input[type="range"]::-moz-range-thumb{
 </head>
 <body>
 <canvas id="sky"></canvas>
-<a class="arcade-link" href="../arcade/">&larr; arcade</a>
+<a class="arcade-link" href="../moving-illustrations/">&larr; moving illustrations</a>
 
 <div class="panel" id="hud">
   <h1>NIGHT SKY / BLR</h1>
   <div class="sub">computed, not fetched &middot; offline</div>
-  <div class="row"><span class="lbl">TIME</span><span id="clock">&mdash;</span></div>
-  <div class="row"><span class="lbl">LST</span><span id="lstout">&mdash;</span></div>
+  <div class="row"><span class="lbl">TIME</span><span id="clock">-</span></div>
+  <div class="row"><span class="lbl">LST</span><span id="lstout">-</span></div>
   <div class="row"><span class="lbl">SET</span>
     <input type="datetime-local" id="dtin" step="60">
     <button id="livebtn" title="back to real time">LIVE</button>
@@ -158,14 +158,14 @@ input[type="range"]::-moz-range-thumb{
     <button id="geobtn">use my location</button>
     <button id="bortlebtn" title="Bangalore Bortle 8: filter to mag &le; 3">what I can see</button>
   </div>
-  <div class="row" id="moonrow">MOON <b id="moonphase">&mdash;</b></div>
+  <div class="row" id="moonrow">MOON <b id="moonphase">-</b></div>
   <div class="note">Bangalore is <em>Bortle 8</em>-ish: realistically you&rsquo;ll see
-  mag &le; 3 &mdash; hit &ldquo;what I can see&rdquo;. Zenith at center, horizon at the rim;
+  mag &le; 3. Hit &ldquo;what I can see&rdquo;. Zenith at center, horizon at the rim;
   E is LEFT because you&rsquo;re looking <em>up</em>. Planets soon.</div>
 </div>
 
 <div class="panel" id="scrub">
-  <div class="lbl2">TIME SCRUB <b id="scrubval">+0h00</b> &middot; drag &mdash; stars rise in the EAST</div>
+  <div class="lbl2">TIME SCRUB <b id="scrubval">+0h00</b> &middot; drag &middot; stars rise in the EAST</div>
   <input type="range" id="scrubber" min="-720" max="720" step="5" value="0">
 </div>
 
@@ -805,7 +805,7 @@ cv.addEventListener("click", e => {
   const s = STARS[best.i];
   document.getElementById("cname").textContent = s[1] || `HR ${s[0]}`;
   document.getElementById("ckv").innerHTML =
-    `mag <b>${s[4].toFixed(2)}</b> · B–V <b>${s[5].toFixed(2)}</b><br>` +
+    `mag <b>${s[4].toFixed(2)}</b> · B−V <b>${s[5].toFixed(2)}</b><br>` +
     (s[6] ? `distance <b>≈ ${s[6]} ly</b><br>` : "") +
     (s[7] ? `constellation <b>${s[7]}</b><br>` : "") +
     `alt <b>${best.alt.toFixed(1)}°</b> · az <b>${best.az.toFixed(1)}°</b>` +

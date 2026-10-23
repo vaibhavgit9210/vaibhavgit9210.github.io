@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#060a13">
-<title>Scale of the Universe — desk to the edge of everything</title>
+<title>Scale of the Universe: desk to the edge of everything</title>
 <meta name="description" content="One long scroll on a logarithmic scale: from a desk in Bangalore (1 m) to the observable universe (8.8×10²⁶ m).">
 <meta property="og:title" content="Scale of the Universe">
-<meta property="og:description" content="Scroll from a desk in Bangalore to the edge of everything — 27 orders of magnitude.">
+<meta property="og:description" content="Scroll from a desk in Bangalore to the edge of everything: 27 orders of magnitude.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪐</text></svg>">
 <style>
@@ -129,7 +129,7 @@ body{
 </style>
 </head>
 <body>
-<a class="back" href="../arcade/">&larr; arcade</a>
+<a class="back" href="../moving-illustrations/">&larr; moving illustrations</a>
 
 <div id="intro" aria-hidden="true">
   <h1>SCALE OF THE <span class="u">UNIVERSE</span></h1>
@@ -181,7 +181,7 @@ function fadeAlpha(r){                 // r = px / viewportH ; range sits INSIDE
 const C = {cyan:'#6ee7ff', violet:'#a78bfa', pink:'#f0abfc', yellow:'#fcd34d', fg:'#e6edf7'};
 const OBJECTS = [
 {id:'desk',      name:'Your desk',                 short:'your desk',        size_m:1,        sizeLabel:'1 m',                     kind:'emoji', emoji:'🪑', color:C.cyan,
-  fact:'One metre — the scale your hands were built for.'},
+  fact:'One metre: the scale your hands were built for.'},
 {id:'you',       name:'You',                       short:'you',              size_m:1.7,      sizeLabel:'1.7 m',                   kind:'emoji', emoji:'🧍', color:C.pink,
   fact:'1.7 metres of stardust, currently scrolling.'},
 {id:'auto',      name:'Auto-rickshaw',             short:'the auto',         size_m:3,        sizeLabel:'3 m',                     kind:'emoji', emoji:'🛺', color:C.yellow,
@@ -191,31 +191,31 @@ const OBJECTS = [
 {id:'stadium',   name:'Chinnaswamy Stadium',       short:'the stadium',      size_m:160,      sizeLabel:'160 m',                   kind:'emoji', emoji:'🏟️', color:C.cyan,
   fact:'The loudest 160 metres in Bengaluru on match night.'},
 {id:'burj',      name:'Burj Khalifa',              short:'the Burj',         size_m:828,      sizeLabel:'828 m',                   kind:'spire', color:C.yellow,
-  fact:'Humanity’s tallest build — visible from 95 km away.'},
+  fact:'Humanity’s tallest build, visible from 95 km away.'},
 {id:'everest',   name:'Mount Everest',             short:'Everest',          size_m:8848,     sizeLabel:'8,848 m',                 kind:'emoji', emoji:'🏔️', color:C.fg,
   fact:'Airliners cruise barely three kilometres above this summit.'},
 {id:'blr',       name:'Bengaluru',                 short:'Bengaluru',        size_m:4.2e4,    sizeLabel:'42 km',                   kind:'region', color:C.cyan,
   fact:'12 million people, one shared traffic jam.'},
 {id:'karman',    name:'Kármán line',               short:'the hop to space', size_m:1e5,      sizeLabel:'100 km',                  kind:'region', color:C.violet,
-  fact:'Space begins 100 km up — an hour’s drive, straight up.'},
+  fact:'Space begins 100 km up: an hour’s drive, straight up.'},
 {id:'karnataka', name:'Karnataka',                 short:'Karnataka',        size_m:7.5e5,    sizeLabel:'750 km',                  kind:'region', color:C.yellow,
   fact:'One state, longer than most countries.'},
 {id:'india',     name:'India',                     short:'India',            size_m:3.2e6,    sizeLabel:'3,200 km',                kind:'region', color:C.pink,
-  fact:'Kashmir to Kanyakumari — 3,200 km of everything.'},
+  fact:'Kashmir to Kanyakumari: 3,200 km of everything.'},
 {id:'earth',     name:'Earth',                     short:'Earth',            size_m:1.2742e7, sizeLabel:'12,742 km',               kind:'earth', color:C.cyan,
   fact:'Every human who ever lived, lived here.'},
 {id:'jupiter',   name:'Jupiter',                   short:'Jupiter',          size_m:1.3982e8, sizeLabel:'139,820 km',              kind:'jupiter', color:C.yellow,
   fact:'1,300 Earths would fit inside.'},
-{id:'moongap',   name:'Earth–Moon distance',       short:'the Moon gap',     size_m:3.844e8,  sizeLabel:'384,400 km',              kind:'orbit', color:C.cyan,
+{id:'moongap',   name:'Earth-Moon distance',       short:'the Moon gap',     size_m:3.844e8,  sizeLabel:'384,400 km',              kind:'orbit', color:C.cyan,
   fact:'All seven other planets fit in this gap.'},
 {id:'sun',       name:'The Sun',                   short:'the Sun',          size_m:1.392e9,  sizeLabel:'1.39×10⁹ m',              kind:'sun', color:C.yellow,
   fact:'99.86% of the solar system’s mass, right here.'},
 {id:'au',        name:'One Astronomical Unit',     short:'an AU',            size_m:1.496e11, sizeLabel:'1 AU · 1.5×10¹¹ m',       kind:'orbit', color:C.violet,
   fact:'Sunlight crosses this in 8 minutes 20 seconds.'},
 {id:'betelgeuse',name:'Betelgeuse',                short:'Betelgeuse',       size_m:1.2e12,   sizeLabel:'1.2×10¹² m',              kind:'redgiant', color:C.pink,
-  fact:'Put it where the Sun is — it swallows Jupiter.'},
+  fact:'Put it where the Sun is: it swallows Jupiter.'},
 {id:'solsys',    name:'The Solar System',          short:'the solar system', size_m:9.0e12,   sizeLabel:'9×10¹² m',                kind:'solarsystem', color:C.yellow,
-  fact:'Neptune’s orbit — the Sun’s family portrait frame.'},
+  fact:'Neptune’s orbit: the Sun’s family portrait frame.'},
 {id:'voyager',   name:'Voyager 1’s journey',       short:'Voyager’s trek',   size_m:2.5e13,   sizeLabel:'2.5×10¹³ m',              kind:'voyager', color:C.cyan,
   fact:'Farthest human-made object. Launched 1977. Still whispering home.'},
 {id:'lightmonth',name:'One light-month',           short:'a light-month',    size_m:7.77e14,  sizeLabel:'7.8×10¹⁴ m',              kind:'lightring', color:C.violet,
@@ -229,15 +229,15 @@ const OBJECTS = [
 {id:'orion',     name:'The Orion Arm',             short:'the Orion Arm',    size_m:3.0e19,   sizeLabel:'3,500 ly',                kind:'arc', color:C.violet,
   fact:'Our galactic street address.'},
 {id:'milkyway',  name:'The Milky Way',             short:'the Milky Way',    size_m:1.0e21,   sizeLabel:'100,000 ly',              kind:'galaxy', color:C.violet,
-  fact:'400 billion stars. You are here — nowhere special.'},
+  fact:'400 billion stars. You are here, nowhere special.'},
 {id:'andromeda', name:'To Andromeda',              short:'the Andromeda gap', size_m:2.4e22,  sizeLabel:'2.5 million ly',          kind:'twogalaxies', color:C.pink,
-  fact:'Closest big galaxy — it arrives in 4 billion years.'},
+  fact:'Closest big galaxy: it arrives in 4 billion years.'},
 {id:'localgroup',name:'The Local Group',           short:'the Local Group',  size_m:6.0e22,   sizeLabel:'≈ 6 million ly',          kind:'galaxycluster', color:C.cyan,
   fact:'Our gang: 80-odd galaxies, gravitationally stuck together.'},
 {id:'virgo',     name:'Virgo Supercluster',        short:'Virgo',            size_m:5.0e23,   sizeLabel:'≈ 50 million ly',         kind:'galaxycluster', color:C.violet,
   fact:'Thousands of galaxies. The Local Group is a suburb.'},
 {id:'laniakea',  name:'Laniakea',                  short:'Laniakea',         size_m:1.6e25,   sizeLabel:'520 million ly',          kind:'web', color:C.pink,
-  fact:'“Immeasurable heaven” — 100,000 galaxies drifting together.'},
+  fact:'“Immeasurable heaven”: 100,000 galaxies drifting together.'},
 {id:'universe',  name:'The Observable Universe',   short:'the universe',     size_m:8.8e26,   sizeLabel:'8.8×10²⁶ m · 93 Gly',     kind:'cmb', color:C.yellow,
   fact:'The edge of everything we will ever see.'},
 ];
@@ -724,7 +724,7 @@ const railBtns = [];
     const b = document.createElement('button');
     const o = landmark[d];
     if (o) b.className = 'mark';
-    b.setAttribute('aria-label', '10^' + d + ' metres' + (o ? ' — ' + o.name : ''));
+    b.setAttribute('aria-label', '10^' + d + ' metres' + (o ? ', ' + o.name : ''));
     b.title = expLabel(d).replace(' m',' m') + (o ? ' · ' + o.name : '');
     const target = (o ? o.expTarget : d) / DECADES;
     b.addEventListener('click', () => {
@@ -845,7 +845,7 @@ if (Q.has('test')){
   const passed = results.filter(r => r.ok).length;
   const summary = passed === results.length
     ? 'TESTS PASS ' + passed + '/' + results.length
-    : 'TESTS FAIL ' + passed + '/' + results.length + ' — ' +
+    : 'TESTS FAIL ' + passed + '/' + results.length + ': ' +
       results.filter(r => !r.ok).map(r => r.name + (r.note ? ' (' + r.note + ')' : '')).join('; ');
   document.title = summary;
   const out = $('#testout');
