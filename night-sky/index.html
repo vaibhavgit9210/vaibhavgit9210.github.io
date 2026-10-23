@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#060a13">
 <title>Night Sky over Bangalore</title>
 <meta name="description" content="A real-time star chart computed — not fetched — for the sky over Bangalore. 323 stars, 30 constellations, the Moon, all from first-principles astronomy math.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%8C%3C/text%3E%3C/svg%3E">
@@ -10,6 +12,11 @@
 :root{
   --bg:#060a13; --text:#e6edf7; --muted:#8b98ad;
   --cyan:#6ee7ff; --violet:#a78bfa; --pink:#f0abfc; --yellow:#fcd34d;
+  /* glass, the macOS 26+ material: translucent fill, blur behind, bright top rim with a cyan edge, soft drop */
+  --glass:rgba(9,14,26,.64); --glass-solid:rgba(9,14,26,.86);
+  --blur:blur(24px) saturate(170%);
+  --rim:inset 0 .5px 0 rgba(255,255,255,.2), inset 0 0 0 .5px rgba(110,231,255,.18);
+  --drop:0 10px 30px rgba(0,0,0,.36), 0 1px 3px rgba(0,0,0,.22);
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden}
@@ -17,24 +24,29 @@ body{
   background:var(--bg); color:var(--text);
   font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
   font-size:13px;
+  -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent;
 }
 canvas#sky{position:fixed;inset:0;display:block;cursor:crosshair}
 a{color:var(--cyan);text-decoration:none}
 .arcade-link{
-  position:fixed;top:12px;left:14px;z-index:20;
-  padding:6px 12px;border:1px solid rgba(110,231,255,.35);border-radius:8px;
-  background:rgba(6,10,19,.72);backdrop-filter:blur(8px);
+  position:fixed;top:max(12px, env(safe-area-inset-top));left:max(14px, env(safe-area-inset-left));z-index:20;
+  padding:7px 14px;border-radius:999px;
+  background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  box-shadow:var(--rim), var(--drop);
   color:var(--cyan);letter-spacing:.04em;
+  transition:box-shadow .2s ease-out, transform .15s ease-out;
 }
-.arcade-link:hover{border-color:var(--cyan);box-shadow:0 0 14px rgba(110,231,255,.35)}
+.arcade-link:hover{box-shadow:var(--rim), inset 0 0 0 1px rgba(110,231,255,.45), 0 0 14px rgba(110,231,255,.3)}
+.arcade-link:active{transform:scale(.97)}
+.arcade-link:focus-visible{outline:none;box-shadow:var(--rim), inset 0 0 0 1px var(--cyan), 0 0 0 4px rgba(110,231,255,.2)}
 .panel{
   position:fixed;z-index:15;
-  background:rgba(9,14,26,.78);backdrop-filter:blur(10px);
-  border:1px solid rgba(110,231,255,.18);border-radius:12px;
-  padding:12px 14px;
-  box-shadow:0 0 24px rgba(0,0,0,.5);
+  background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  border-radius:18px;
+  padding:13px 15px;
+  box-shadow:var(--rim), var(--drop);
 }
-#hud{top:12px;right:14px;width:272px}
+#hud{top:max(12px, env(safe-area-inset-top));right:max(14px, env(safe-area-inset-right));width:272px}
 #hud h1{
   font-size:14px;font-weight:600;letter-spacing:.08em;color:var(--cyan);
   text-shadow:0 0 12px rgba(110,231,255,.5);margin-bottom:2px;
@@ -45,25 +57,30 @@ a{color:var(--cyan);text-decoration:none}
 #clock{color:var(--yellow);font-size:13px;letter-spacing:.03em}
 #lstout{color:var(--muted);font-size:11px}
 input[type="datetime-local"]{
-  background:rgba(110,231,255,.06);border:1px solid rgba(110,231,255,.25);
-  border-radius:6px;color:var(--text);font-family:inherit;font-size:11px;
-  padding:4px 6px;color-scheme:dark;flex:1;min-width:0;
+  background:rgba(110,231,255,.07);border:0;box-shadow:inset 0 0 0 .5px rgba(110,231,255,.3);
+  border-radius:10px;color:var(--text);font-family:inherit;font-size:11px;
+  padding:5px 8px;color-scheme:dark;flex:1;min-width:0;outline:none;
+  transition:box-shadow .2s ease-out;
 }
+input[type="datetime-local"]:focus{box-shadow:inset 0 0 0 1px var(--cyan), 0 0 0 4px rgba(110,231,255,.2)}
 button{
-  background:rgba(110,231,255,.08);border:1px solid rgba(110,231,255,.3);
-  border-radius:6px;color:var(--cyan);font-family:inherit;font-size:11px;
-  padding:4px 10px;cursor:pointer;letter-spacing:.04em;
+  background:rgba(110,231,255,.1);border:0;box-shadow:inset 0 0 0 .5px rgba(110,231,255,.3);
+  border-radius:999px;color:var(--cyan);font-family:inherit;font-size:11px;
+  padding:5px 12px;cursor:pointer;letter-spacing:.04em;
+  transition:background-color .15s ease-out, box-shadow .15s ease-out, transform .15s ease-out;
 }
-button:hover{background:rgba(110,231,255,.16);box-shadow:0 0 10px rgba(110,231,255,.25)}
-button.on{background:rgba(167,139,250,.2);border-color:var(--violet);color:var(--violet)}
+button:hover{background:rgba(110,231,255,.18);box-shadow:inset 0 0 0 .5px rgba(110,231,255,.45), 0 0 10px rgba(110,231,255,.25)}
+button:active{transform:scale(.97)}
+button:focus-visible{outline:none;box-shadow:inset 0 0 0 1px var(--cyan), 0 0 0 3px rgba(110,231,255,.25)}
+button.on{background:rgba(167,139,250,.22);box-shadow:inset 0 0 0 .5px rgba(167,139,250,.6);color:var(--violet)}
 #loc{color:var(--pink);font-size:11px}
 #moonrow{color:var(--muted);font-size:11px}
 #moonrow b{color:var(--text);font-weight:600}
 .note{color:var(--muted);font-size:10.5px;line-height:1.5;margin-top:9px;
-  border-top:1px dashed rgba(139,152,173,.25);padding-top:8px}
+  border-top:.5px solid rgba(139,152,173,.25);padding-top:8px}
 .note em{color:var(--yellow);font-style:normal}
 #scrub{
-  bottom:16px;left:50%;transform:translateX(-50%);
+  bottom:max(16px, env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
   width:min(520px,calc(100vw - 24px));text-align:center;padding:10px 16px;
 }
 #scrub .lbl2{color:var(--muted);font-size:11px;letter-spacing:.06em}
@@ -82,29 +99,39 @@ input[type="range"]::-moz-range-thumb{
   background:var(--cyan);box-shadow:0 0 12px rgba(110,231,255,.8);cursor:pointer;
 }
 #card{
-  left:14px;bottom:16px;min-width:200px;max-width:260px;display:none;
+  left:max(14px, env(safe-area-inset-left));bottom:max(16px, env(safe-area-inset-bottom));min-width:200px;max-width:260px;display:none;
 }
 #card.show{display:block}
 #card h2{font-size:15px;color:var(--yellow);text-shadow:0 0 10px rgba(252,211,77,.4);
   margin-bottom:4px;font-weight:600}
 #card .kv{color:var(--muted);font-size:11.5px;line-height:1.7}
 #card .kv b{color:var(--text);font-weight:500}
-#card .x{position:absolute;top:6px;right:9px;color:var(--muted);cursor:pointer;font-size:14px}
-#card .x:hover{color:var(--pink)}
+#card .x{position:absolute;top:8px;right:8px;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;
+  background:rgba(255,255,255,.07);color:var(--muted);cursor:pointer;font-size:14px;line-height:1;
+  transition:background-color .15s ease-out, color .15s ease-out}
+#card .x:hover{color:var(--pink);background:rgba(240,171,252,.14)}
 #test-out{
   position:fixed;left:14px;top:56px;z-index:30;white-space:pre;display:none;
   background:rgba(9,14,26,.9);border:1px solid rgba(110,231,255,.3);border-radius:10px;
   padding:12px 14px;font-size:11px;line-height:1.6;max-height:70vh;overflow:auto;
 }
 @media (max-width:640px){
-  #hud{top:auto;bottom:74px;right:8px;left:8px;width:auto;padding:10px 12px}
+  #hud{top:auto;bottom:calc(66px + max(8px, env(safe-area-inset-bottom)));right:max(8px, env(safe-area-inset-right));left:max(8px, env(safe-area-inset-left));width:auto;padding:11px 13px}
   #hud .note{display:none}
-  #scrub{bottom:8px;width:calc(100vw - 16px)}
-  #card{left:8px;bottom:74px;max-width:70vw}
-  .arcade-link{top:8px;left:8px}
+  #scrub{bottom:max(8px, env(safe-area-inset-bottom));width:calc(100vw - 16px)}
+  #card{left:max(8px, env(safe-area-inset-left));bottom:calc(66px + max(8px, env(safe-area-inset-bottom)));max-width:70vw}
+  .arcade-link{top:max(8px, env(safe-area-inset-top));left:max(8px, env(safe-area-inset-left))}
+  /* 16px stops iOS zooming into the field on focus; a narrower label column keeps it on one line */
+  input[type="datetime-local"]{font-size:16px;padding:4px 6px}
+  .lbl{min-width:44px}
 }
 @media (prefers-reduced-motion: reduce){
   *{transition:none!important;animation:none!important}
+}
+/* Reduce Transparency (System Settings > Accessibility > Display): solid surfaces, no blur */
+@media (prefers-reduced-transparency: reduce){
+  :root{--glass:#0b111e;--glass-solid:#0b111e}
+  .panel,.arcade-link{-webkit-backdrop-filter:none;backdrop-filter:none}
 }
 </style>
 </head>
