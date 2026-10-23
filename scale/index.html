@@ -27,7 +27,7 @@ body{
   margin:0; background:var(--bg); color:var(--fg);
   font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
   overflow-x:hidden;
-  -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent;
+  -webkit-tap-highlight-color:transparent;
 }
 #cv{position:fixed; inset:0; width:100vw; height:100vh; display:block; z-index:0}
 #spacer{position:relative; width:1px; visibility:hidden}
@@ -37,6 +37,7 @@ body{
   padding:8px 14px; border-radius:999px;
   background:var(--glass); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
   box-shadow:var(--hi), inset 0 0 0 .5px rgba(110,231,255,.24), var(--drop);
+  -webkit-font-smoothing:antialiased;
   transition:box-shadow .2s ease-out, transform .15s ease-out;
 }
 .back:hover{box-shadow:var(--hi), inset 0 0 0 1px rgba(110,231,255,.5), 0 0 14px rgba(110,231,255,.25)}
@@ -62,6 +63,7 @@ body{
   padding:11px 15px 13px; border-radius:18px; max-width:min(340px,72vw);
   background:var(--glass); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
   box-shadow:var(--hi), inset 0 0 0 .5px rgba(167,139,250,.24), var(--drop);
+  -webkit-font-smoothing:antialiased;
 }
 #scaleText{font-size:15px; color:var(--cyan); letter-spacing:.05em}
 #scaleText .lbl{color:var(--muted); font-size:11px; letter-spacing:.18em}

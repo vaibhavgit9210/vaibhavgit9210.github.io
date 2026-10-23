@@ -24,7 +24,7 @@ body{
   background:var(--bg); color:var(--text);
   font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
   font-size:13px;
-  -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent;
+  -webkit-tap-highlight-color:transparent;
 }
 canvas#sky{position:fixed;inset:0;display:block;cursor:crosshair}
 a{color:var(--cyan);text-decoration:none}
@@ -33,7 +33,7 @@ a{color:var(--cyan);text-decoration:none}
   padding:7px 14px;border-radius:999px;
   background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
   box-shadow:var(--rim), var(--drop);
-  color:var(--cyan);letter-spacing:.04em;
+  color:var(--cyan);letter-spacing:.04em;-webkit-font-smoothing:antialiased;
   transition:box-shadow .2s ease-out, transform .15s ease-out;
 }
 .arcade-link:hover{box-shadow:var(--rim), inset 0 0 0 1px rgba(110,231,255,.45), 0 0 14px rgba(110,231,255,.3)}
@@ -45,6 +45,7 @@ a{color:var(--cyan);text-decoration:none}
   border-radius:18px;
   padding:13px 15px;
   box-shadow:var(--rim), var(--drop);
+  -webkit-font-smoothing:antialiased;
 }
 #hud{top:max(12px, env(safe-area-inset-top));right:max(14px, env(safe-area-inset-right));width:272px}
 #hud h1{

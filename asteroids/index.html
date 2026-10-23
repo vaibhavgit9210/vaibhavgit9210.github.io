@@ -31,7 +31,7 @@ body{
   font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   -webkit-user-select:none;user-select:none;
   touch-action:none;
-  -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;
+  -webkit-tap-highlight-color:transparent;
 }
 /* CRT scanlines + vignette, kin to the arcade page */
 body::before{
@@ -50,6 +50,7 @@ a.back{
   padding:5px 12px;border-radius:999px;
   background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
   box-shadow:var(--rim), var(--drop);
+  -webkit-font-smoothing:antialiased;
   transition:color .2s ease-out, transform .15s ease-out;
 }
 a.back:hover{color:var(--accent)}
@@ -101,7 +102,7 @@ a.back:focus-visible{outline:none;color:var(--accent);box-shadow:var(--rim), ins
   font:inherit;color:var(--muted);border:0;border-radius:999px;
   background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
   box-shadow:var(--rim), 0 4px 14px rgba(0,0,0,.25);
-  padding:9px 20px;letter-spacing:2px;font-size:.8rem;cursor:pointer;
+  padding:9px 20px;letter-spacing:2px;font-size:.8rem;cursor:pointer;-webkit-font-smoothing:antialiased;
   transition:color .2s ease-out, box-shadow .2s ease-out, transform .15s ease-out;
 }
 .btn:hover{color:var(--accent);box-shadow:var(--rim), inset 0 0 0 .5px rgba(110,231,255,.45), 0 4px 14px rgba(0,0,0,.25)}
