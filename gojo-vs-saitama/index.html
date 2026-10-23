@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#04050a">
 <title>GOJO VS SAITAMA · VK Arcade</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23060a13'/%3E%3Ctext x='32' y='46' font-size='38' text-anchor='middle'%3E%E2%9A%94%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <meta name="description" content="A choreographed anime fight — Satoru Gojo vs Saitama. Two endings, cinematic camera angles, no pixels.">
@@ -14,13 +16,20 @@
     height:min(100vh, calc(100vw * 9 / 16));
     cursor:pointer;display:block;
   }
+  body{-webkit-tap-highlight-color:transparent}
+  /* a faint glass capsule, so the way back stays quiet over the piece but is easy to hit */
   a.back{
-    position:fixed;top:14px;left:16px;z-index:5;
+    position:fixed;top:max(8px, env(safe-area-inset-top));left:max(10px, env(safe-area-inset-left));z-index:5;
     color:#5a6a80;text-decoration:none;
     font:12px ui-monospace,Menlo,monospace;letter-spacing:2px;
+    padding:6px 12px;border-radius:999px;
+    background:rgba(14,18,28,.5);-webkit-backdrop-filter:blur(20px) saturate(160%);backdrop-filter:blur(20px) saturate(160%);
+    box-shadow:inset 0 .5px 0 rgba(255,255,255,.16),inset 0 0 0 .5px rgba(255,255,255,.07);
     opacity:.55;transition:opacity .2s,color .2s;
   }
-  a.back:hover{opacity:1;color:#8fe9ff}
+  a.back:hover,a.back:focus-visible{opacity:1;color:#8fe9ff}
+  a.back:focus-visible{outline:none;box-shadow:inset 0 .5px 0 rgba(255,255,255,.16),inset 0 0 0 1px rgba(143,233,255,.6),0 0 0 4px rgba(143,233,255,.16)}
+  @media (prefers-reduced-transparency:reduce){a.back{background:#0e121c;-webkit-backdrop-filter:none;backdrop-filter:none}}
 </style>
 </head>
 <body>
