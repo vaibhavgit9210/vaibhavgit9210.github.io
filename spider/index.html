@@ -2,23 +2,43 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#08080c">
 <title>Stick Spider — procedural IK crawl</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23060a13'/%3E%3Ctext x='32' y='46' font-size='38' text-anchor='middle'%3E%F0%9F%95%B7%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <style>
   html, body { margin: 0; height: 100%; background: #08080c; overflow: hidden; }
+  body { -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
   canvas { display: block; margin: 0 auto; background: #08080c; }
+  /* one floating glass capsule: the three modes read as a segmented control, sound as a toggle beside it */
   #ui {
-    position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
-    display: flex; gap: 6px; z-index: 2;
+    position: fixed; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+    display: flex; gap: 2px; z-index: 2; padding: 3px; border-radius: 999px;
+    background: rgba(20,20,28,0.55);
+    -webkit-backdrop-filter: blur(24px) saturate(170%); backdrop-filter: blur(24px) saturate(170%);
+    box-shadow: inset 0 .5px 0 rgba(255,255,255,.18), inset 0 0 0 .5px rgba(255,255,255,.07),
+      0 10px 30px rgba(0,0,0,.35), 0 1px 3px rgba(0,0,0,.25);
   }
   #ui button {
     font: 12px/1 monospace; letter-spacing: 1px; text-transform: uppercase;
-    color: #8b8b99; background: rgba(20,20,28,0.85);
-    border: 1px solid #2a2a36; border-radius: 4px;
-    padding: 6px 12px; cursor: pointer;
+    color: #8b8b99; background: transparent;
+    border: 0; border-radius: 999px;
+    padding: 8px 13px; cursor: pointer; white-space: nowrap;
+    transition: background-color .15s ease-out, color .15s ease-out, transform .15s ease-out;
   }
-  #ui button.on { color: #e4ee7a; border-color: #cbe36b; }
+  #ui button:hover { background: rgba(255,255,255,.08); color: #c4c4d0; }
+  #ui button:active { transform: scale(.97); }
+  #ui button:focus-visible { outline: none; box-shadow: inset 0 0 0 1px rgba(228,238,122,.7), 0 0 0 3px rgba(228,238,122,.2); }
+  #ui button.on { color: #e4ee7a; background: rgba(255,255,255,.13); box-shadow: inset 0 .5px 0 rgba(255,255,255,.25), 0 1px 3px rgba(0,0,0,.3); }
+  #snd { position: relative; margin-left: 7px; }
+  #snd::before { content: ""; position: absolute; left: -5px; top: 8px; bottom: 8px; width: 1px; background: rgba(255,255,255,.14); }
+  #ui #snd.on { background: rgba(228,238,122,.12); box-shadow: inset 0 0 0 .5px rgba(203,227,107,.45); }
+  @media (prefers-reduced-motion: reduce) { #ui button { transition: none; } }
+  /* Reduce Transparency: a solid capsule, no blur */
+  @media (prefers-reduced-transparency: reduce) {
+    #ui { background: #16161e; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  }
 </style>
 </head>
 <body>
