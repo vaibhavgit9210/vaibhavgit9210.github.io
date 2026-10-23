@@ -3,66 +3,99 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#060a13">
 <title>Gravity Well</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>%F0%9F%AA%90</text></svg>">
 <style>
   :root{
     --bg:#060a13; --text:#e6edf7; --muted:#8b98ad;
     --cyan:#6ee7ff; --violet:#a78bfa; --pink:#f0abfc; --yellow:#fcd34d;
+    /* glass, the macOS 26+ material: translucent fill, blur behind, bright top rim, soft drop */
+    --glass:rgba(16,22,36,.55); --glass-solid:rgba(12,18,30,.86);
+    --blur:blur(24px) saturate(170%);
+    --rim:inset 0 .5px 0 rgba(255,255,255,.2), inset 0 0 0 .5px rgba(255,255,255,.07);
+    --drop:0 10px 30px rgba(0,0,0,.32), 0 1px 3px rgba(0,0,0,.22);
+    /* the safe top edge: chrome below the back link keeps its old offsets from here */
+    --top:max(12px, env(safe-area-inset-top));
   }
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);
-    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
   canvas#c{display:block;position:fixed;inset:0;touch-action:none;cursor:crosshair}
-  .back{position:fixed;top:12px;left:14px;z-index:20;color:var(--muted);
+  .back{position:fixed;top:var(--top);left:max(14px, env(safe-area-inset-left));z-index:20;color:var(--muted);
     text-decoration:none;font-size:13px;letter-spacing:.04em;
-    padding:4px 8px;border-radius:8px;transition:color .15s}
-  .back:hover{color:var(--cyan)}
-  #hud{position:fixed;top:44px;left:14px;z-index:10;pointer-events:none;
+    padding:6px 13px;border-radius:999px;
+    background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+    box-shadow:var(--rim), var(--drop);
+    transition:color .15s ease-out, background-color .15s ease-out, transform .15s ease-out}
+  .back:hover{color:var(--cyan);background-color:rgba(30,40,60,.62)}
+  .back:active{transform:scale(.97)}
+  .back:focus-visible{outline:none;box-shadow:var(--rim), inset 0 0 0 1px rgba(110,231,255,.55), 0 0 0 4px rgba(110,231,255,.18)}
+  #hud{position:fixed;top:calc(var(--top) + 32px);left:max(14px, env(safe-area-inset-left));z-index:10;pointer-events:none;
     color:var(--muted);font-size:12px;line-height:1.7;
     text-shadow:0 1px 4px rgba(6,10,19,.9)}
-  #controls{position:fixed;top:10px;right:12px;z-index:20;display:flex;gap:8px}
-  #presets{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
-    z-index:20;display:flex;gap:8px}
+  /* tool groups: buttons sit on one floating glass capsule */
+  #controls{position:fixed;top:max(10px, env(safe-area-inset-top));right:max(12px, env(safe-area-inset-right));z-index:20;display:flex;gap:2px}
+  #presets{position:fixed;bottom:max(14px, env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
+    z-index:20;display:flex;gap:2px}
+  #controls,#presets{
+    padding:3px;border-radius:999px;
+    background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+    box-shadow:var(--rim), var(--drop);
+  }
   button{
     font:inherit;font-size:13px;color:var(--text);cursor:pointer;
-    background:rgba(230,237,247,.05);
-    border:1px solid rgba(110,231,255,.22);
-    border-radius:10px;padding:8px 12px;min-width:40px;min-height:38px;
-    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-    transition:border-color .15s, background .15s;
+    background:transparent;border:0;
+    border-radius:999px;padding:8px 14px;min-width:36px;min-height:36px;white-space:nowrap;
+    transition:background-color .15s ease-out, color .15s ease-out, transform .15s ease-out;
   }
-  button:hover{border-color:rgba(110,231,255,.55);background:rgba(110,231,255,.08)}
-  #infocard{position:fixed;top:112px;left:14px;z-index:10;font-size:12px;
-    color:var(--text);background:rgba(6,10,19,.72);
-    border:1px solid rgba(167,139,250,.35);border-radius:10px;
-    padding:10px 12px;line-height:1.7;pointer-events:none;
-    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  #controls button{padding:0 10px}
+  button:hover{background:rgba(255,255,255,.08)}
+  button:active{transform:scale(.97)}
+  button:focus-visible{outline:none;box-shadow:inset 0 0 0 1px rgba(110,231,255,.6), 0 0 0 3px rgba(110,231,255,.2)}
+  #infocard{position:fixed;top:calc(var(--top) + 100px);left:max(14px, env(safe-area-inset-left));z-index:10;font-size:12px;
+    color:var(--text);background:rgba(10,15,27,.7);
+    border-radius:16px;
+    padding:10px 14px;line-height:1.7;pointer-events:none;
+    -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+    box-shadow:var(--rim), inset 0 0 0 .5px rgba(167,139,250,.32), var(--drop)}
   #infocard .k{color:var(--muted)}
   #help{position:fixed;inset:0;z-index:30;display:flex;align-items:center;
-    justify-content:center;background:rgba(6,10,19,.6)}
+    justify-content:center;background:rgba(6,10,19,.52);
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
   #help[hidden],#infocard[hidden]{display:none}
-  .card{max-width:420px;margin:16px;padding:24px 26px;border-radius:14px;
-    background:rgba(10,16,28,.88);border:1px solid rgba(110,231,255,.28);
-    box-shadow:0 0 60px rgba(110,231,255,.08), 0 12px 40px rgba(0,0,0,.5);
-    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+  .card{max-width:420px;margin:16px;padding:24px 26px;border-radius:24px;
+    background:var(--glass-solid);
+    box-shadow:var(--rim), 0 0 60px rgba(110,231,255,.07), 0 30px 80px rgba(0,0,0,.55);
+    -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
   .card h1{font-size:17px;margin-bottom:12px;color:var(--cyan);
     font-weight:600;letter-spacing:.04em}
   .card p{font-size:13px;color:var(--text);line-height:1.75;margin-bottom:10px}
   .card p b{color:var(--yellow);font-weight:600}
   .card .hint{color:var(--muted);font-size:12px}
-  .card button{margin-top:12px;color:var(--cyan)}
+  .card button{margin-top:12px;padding:8px 20px;color:#06101c;font-weight:600;background:var(--cyan);
+    box-shadow:inset 0 .5px 0 rgba(255,255,255,.45), 0 4px 16px rgba(110,231,255,.26)}
+  .card button:hover{background:#9af0ff}
+  .card button:focus-visible{box-shadow:inset 0 .5px 0 rgba(255,255,255,.45), 0 0 0 3px rgba(110,231,255,.35)}
   #testout{position:fixed;top:70px;left:14px;z-index:40;font-size:14px;
     white-space:pre-wrap;color:var(--text)}
   @media (max-width:600px){
     #hud{font-size:11px}
-    button{padding:8px 10px;font-size:12px}
-    #presets{bottom:10px}
+    button{padding:8px 12px;font-size:12px}
+    #presets{bottom:max(10px, env(safe-area-inset-bottom))}
     .card{padding:18px}
   }
   @media (prefers-reduced-motion: reduce){
     button{transition:none}
     .back{transition:none}
+  }
+  /* Reduce Transparency (System Settings > Accessibility > Display): solid surfaces, no blur */
+  @media (prefers-reduced-transparency: reduce){
+    :root{--glass:#111827;--glass-solid:#111827}
+    .back,#controls,#presets,#infocard,#help,.card{-webkit-backdrop-filter:none;backdrop-filter:none}
+    #infocard{background:#111827}
   }
 </style>
 </head>
